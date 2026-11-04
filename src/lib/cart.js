@@ -53,3 +53,49 @@ export function describeOptions(line) {
   if (line.food.hasSpice) parts.push(SPICE_LABELS[line.spiceLevel] ?? '')
   return parts.filter(Boolean).join(' · ')
 }
+
+const isEmptyCart = (state) => !state || !state.items?.length
+
+/**
+ * Gộp giỏ trên máy (khách vãng lai) vào giỏ của tài khoản khi đăng nhập.
+ * - Một bên trống: lấy bên còn lại.
+ * - Cùng quán: dòng trùng khóa cộng dồn; tổng mỗi món không vượt tồn kho
+ *   (giữ phần của giỏ tài khoản trước, rồi mới thêm phần trên máy).
+ * - Khác quán: không tự gộp, trả về 'conflict' để hỏi khách giữ giỏ nào.
+ * @param stockOf (foodId) => tồn kho hiện tại; món không còn bán trả về 0.
+ */
+export function mergeCarts(local, remote, stockOf) {
+  const empty = { restaurantId: null, items: [] }
+  if (isEmptyCart(local) && isEmptyCart(remote)) return { status: 'merged', state: empty }
+  if (isEmptyCart(local)) return { status: 'merged', state: remote }
+  if (isEmptyCart(remote)) return { status: 'merged', state: capToStock(local, stockOf) }
+  if (local.restaurantId !== remote.restaurantId) return { status: 'conflict', local, remote }
+
+  const byKey = new Map()
+  for (const item of [...remote.items, ...local.items]) {
+    const key = lineKey(item)
+    const existing = byKey.get(key)
+    if (existing) existing.quantity += item.quantity
+    else byKey.set(key, { ...item, toppingIds: [...item.toppingIds] })
+  }
+  return {
+    status: 'merged',
+    state: capToStock({ restaurantId: remote.restaurantId, items: [...byKey.values()] }, stockOf),
+  }
+}
+
+/** Cắt số lượng theo tồn kho, theo thứ tự các dòng; dòng về 0 thì bỏ. */
+export function capToStock(state, stockOf) {
+  const used = new Map()
+  const items = []
+  for (const item of state.items) {
+    const left = Math.max(0, stockOf(item.foodId) - (used.get(item.foodId) ?? 0))
+    const quantity = Math.min(item.quantity, left)
+    if (quantity <= 0) continue
+    used.set(item.foodId, (used.get(item.foodId) ?? 0) + quantity)
+    items.push({ ...item, quantity })
+  }
+  return items.length
+    ? { restaurantId: state.restaurantId, items }
+    : { restaurantId: null, items: [] }
+}

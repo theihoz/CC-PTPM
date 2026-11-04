@@ -1,6 +1,7 @@
 <script setup>
 import AppHeader from '@/components/AppHeader.vue'
 import ToastHost from '@/components/ToastHost.vue'
+import CartConflictDialog from '@/components/CartConflictDialog.vue'
 </script>
 
 <template>
@@ -20,4 +21,5 @@ import ToastHost from '@/components/ToastHost.vue'
     </footer>
   </div>
   <ToastHost />
+  <CartConflictDialog />
 </template>
