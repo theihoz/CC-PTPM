@@ -14,7 +14,7 @@ const icon = { success: '✅', error: '⚠️', info: 'ℹ️' }
 
 <template>
   <div
-    class="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4 sm:inset-x-auto sm:right-4 sm:items-end"
+    class="pointer-events-none fixed inset-x-0 bottom-20 z-50 flex flex-col items-center gap-2 px-4 sm:inset-x-auto sm:right-4 sm:bottom-20 sm:items-end"
     aria-live="polite"
     role="status"
   >

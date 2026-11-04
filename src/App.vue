@@ -2,6 +2,7 @@
 import AppHeader from '@/components/AppHeader.vue'
 import ToastHost from '@/components/ToastHost.vue'
 import CartConflictDialog from '@/components/CartConflictDialog.vue'
+import AiChatbot from '@/components/AiChatbot.vue'
 </script>
 
 <template>
@@ -22,4 +23,5 @@ import CartConflictDialog from '@/components/CartConflictDialog.vue'
   </div>
   <ToastHost />
   <CartConflictDialog />
+  <AiChatbot />
 </template>
