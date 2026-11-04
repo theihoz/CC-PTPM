@@ -1,11 +1,30 @@
 <script setup>
-import { ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, ref } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
+import { useToastStore } from '@/stores/toast'
 import CartDrawer from './CartDrawer.vue'
 
+const auth = useAuthStore()
 const cart = useCartStore()
+const toast = useToastStore()
+const route = useRoute()
+const router = useRouter()
 const cartOpen = ref(false)
+
+const firstName = computed(() => auth.displayName.split(/\s+/).at(-1) || 'Tài khoản')
+const loginLink = computed(() =>
+  route.meta.guestOnly || route.name === 'not-found'
+    ? { name: 'login' }
+    : { name: 'login', query: { redirect: route.fullPath } },
+)
+
+async function signOut() {
+  await auth.signOut()
+  toast.show('Bạn đã đăng xuất.', { tone: 'info' })
+  if (route.meta.requiresAuth) router.replace({ name: 'home' })
+}
 </script>
 
 <template>
@@ -33,6 +52,32 @@ const cartOpen = ref(false)
           active-class="text-brand-600"
         >
           Quán ăn
+        </RouterLink>
+        <template v-if="auth.isSignedIn">
+          <RouterLink
+            :to="{ name: 'account' }"
+            class="flex max-w-32 items-center gap-1 rounded-lg px-2 py-2 hover:bg-stone-100 sm:px-3"
+            active-class="text-brand-600"
+            :title="auth.displayName"
+          >
+            <span aria-hidden="true">👤</span>
+            <span class="sr-only sm:not-sr-only sm:truncate">{{ firstName }}</span>
+            <span class="sr-only sm:hidden">Tài khoản</span>
+          </RouterLink>
+          <button
+            type="button"
+            class="hidden rounded-lg px-3 py-2 text-stone-600 hover:bg-stone-100 sm:block"
+            @click="signOut"
+          >
+            Đăng xuất
+          </button>
+        </template>
+        <RouterLink
+          v-else
+          :to="loginLink"
+          class="rounded-lg bg-brand-600 px-3 py-2 whitespace-nowrap text-white hover:bg-brand-700"
+        >
+          Đăng nhập
         </RouterLink>
         <button
           type="button"
