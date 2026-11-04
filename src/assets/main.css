@@ -3,9 +3,11 @@
 @theme {
   --color-brand-50: #fff7ed;
   --color-brand-100: #ffedd5;
-  --color-brand-500: #f97316;
-  --color-brand-600: #ea580c;
-  --color-brand-700: #c2410c;
+  /* Thang cam đậm hơn Tailwind một bậc để chữ trắng trên nền cam và chữ cam trên nền
+     trắng đều đạt WCAG AA (≥ 4.5:1): brand-600 = 5.2:1, brand-700 = 7.3:1 so với trắng. */
+  --color-brand-500: #ea580c;
+  --color-brand-600: #c2410c;
+  --color-brand-700: #9a3412;
   --font-sans: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
 }
 

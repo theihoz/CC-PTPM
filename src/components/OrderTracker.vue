@@ -49,7 +49,7 @@ const hint = computed(() => {
           v-for="(step, index) in ORDER_STEPS"
           :key="step"
           class="flex flex-col items-center gap-1"
-          :class="index <= currentIndex ? 'text-stone-900' : 'text-stone-400'"
+          :class="index <= currentIndex ? 'text-stone-900' : 'text-stone-500'"
           :aria-current="index === currentIndex ? 'step' : undefined"
         >
           <span
