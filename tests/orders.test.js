@@ -175,3 +175,47 @@ describe('orders store', () => {
     expect(orders.placing).toBe(false)
   })
 })
+
+describe('hủy đơn', () => {
+  beforeEach(() => {
+    rpc.mockReset()
+    setActivePinia(createPinia())
+    const menu = useMenuStore()
+    menu.load = vi.fn().mockResolvedValue()
+  })
+
+  it('gọi RPC cancel_order với id đơn', async () => {
+    rpc.mockResolvedValue({ data: { id: 'o1', cancelledAt: '2026-11-04T12:00:10Z' }, error: null })
+    expect(await orderApi.cancelOrder('o1')).toEqual({
+      id: 'o1',
+      cancelledAt: '2026-11-04T12:00:10Z',
+    })
+    expect(rpc).toHaveBeenCalledWith('cancel_order', { order_id: 'o1' })
+  })
+
+  it('đọc mã lỗi nghiệp vụ, lỗi lạ coi như lỗi mạng', async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: { message: 'too_late' } })
+    await expect(orderApi.cancelOrder('o1')).rejects.toMatchObject({ code: 'too_late' })
+    rpc.mockResolvedValueOnce({ data: null, error: { message: 'boom' } })
+    await expect(orderApi.cancelOrder('o1')).rejects.toMatchObject({ code: 'network' })
+  })
+
+  it('store: thành công trả về thời điểm hủy và tải lại tồn kho', async () => {
+    rpc.mockResolvedValue({ data: { id: 'o1', cancelledAt: 'T' }, error: null })
+    const orders = useOrdersStore()
+    expect(await orders.cancelOrder('o1')).toEqual({ ok: true, cancelledAt: 'T' })
+    expect(useMenuStore().load).toHaveBeenCalledWith({ force: true })
+    expect(orders.cancelling).toBe(false)
+  })
+
+  it('store: quá giờ thì báo lỗi tiếng Việt', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: 'too_late' } })
+    const result = await useOrdersStore().cancelOrder('o1')
+    expect(result).toEqual({
+      ok: false,
+      code: 'too_late',
+      message: orderErrorMessage('too_late'),
+    })
+    expect(result.message).toContain('không thể hủy')
+  })
+})

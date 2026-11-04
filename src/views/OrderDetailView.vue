@@ -7,12 +7,15 @@ import { SPICE_LABELS } from '@/lib/pricing'
 import { orderStatus } from '@/lib/orderStatus'
 import { useNow } from '@/composables/useNow'
 import { usePageTitle } from '@/composables/usePageTitle'
+import { useOrdersStore } from '@/stores/orders'
+import { useToastStore } from '@/stores/toast'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import OrderStatusBadge from '@/components/OrderStatusBadge.vue'
 import OrderTracker from '@/components/OrderTracker.vue'
 import NotFoundView from './NotFoundView.vue'
 
-// Theo dõi một đơn. Trạng thái tính lại mỗi giây từ created_at, nên trang tự
+// Theo dõi một đơn và hủy khi còn đang chuẩn bị. Trạng thái tính lại mỗi giây từ created_at, nên trang tự
 // chuyển bước mà không cần tải lại, và tải lại trang vẫn ra đúng trạng thái.
 const props = defineProps({
   orderId: { type: String, required: true },
@@ -49,6 +52,32 @@ const placedAt = (iso) =>
   new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso))
 
 const tracking = computed(() => (order.value ? orderStatus(order.value, now.value) : null))
+
+// ── Hủy đơn (chỉ khi còn đang chuẩn bị) ────────────────────────────────────
+const orders = useOrdersStore()
+const toast = useToastStore()
+const confirmCancel = ref(false)
+
+// Hết thời gian chuẩn bị trong lúc hộp thoại đang mở thì tự đóng lại.
+watch(
+  () => tracking.value?.canCancel,
+  (canCancel) => {
+    if (!canCancel) confirmCancel.value = false
+  },
+)
+
+async function cancel() {
+  confirmCancel.value = false
+  const result = await orders.cancelOrder(order.value.id)
+  if (result.ok) {
+    order.value = { ...order.value, cancelled_at: result.cancelledAt }
+    toast.show(`Đã hủy đơn ${order.value.code}.`, { tone: 'info' })
+    return
+  }
+  toast.show(result.message, { tone: 'error' })
+  // Trạng thái trên máy chủ có thể đã khác (ví dụ đã hủy ở tab khác).
+  if (result.code === 'already_cancelled' || result.code === 'too_late') load()
+}
 
 usePageTitle(() => (order.value ? `Đơn ${order.value.code}` : ''))
 </script>
@@ -98,7 +127,29 @@ usePageTitle(() => (order.value ? `Đơn ${order.value.code}` : ''))
         <OrderStatusBadge :status="tracking.status" />
       </header>
       <OrderTracker :state="tracking" />
+
+      <div v-if="tracking.canCancel" class="flex justify-center">
+        <button
+          type="button"
+          :disabled="orders.cancelling"
+          class="rounded-xl border border-red-300 px-5 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+          @click="confirmCancel = true"
+        >
+          {{ orders.cancelling ? 'Đang hủy…' : 'Hủy đơn' }}
+        </button>
+      </div>
     </section>
+
+    <ConfirmDialog
+      :open="confirmCancel"
+      title="Hủy đơn hàng này?"
+      :message="`Đơn ${order.code} sẽ bị hủy và quán sẽ không chuẩn bị món nữa. Bạn chỉ hủy được khi quán chưa giao cho shipper.`"
+      confirm-label="Hủy đơn"
+      cancel-label="Giữ đơn"
+      danger
+      @confirm="cancel"
+      @cancel="confirmCancel = false"
+    />
 
     <section
       class="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6"
