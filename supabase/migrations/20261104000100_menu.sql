@@ -149,6 +149,12 @@ drop policy if exists "Menu: ai cũng đọc được" on public.food_toppings;
 create policy "Menu: ai cũng đọc được" on public.food_toppings
   for select to anon, authenticated using (true);
 
+-- Cấp quyền đọc tường minh để bảng luôn được mở ra Data API,
+-- kể cả khi project tắt tự động mở bảng mới.
+grant select on
+  public.categories, public.restaurants, public.foods, public.food_sizes, public.food_toppings
+  to anon, authenticated;
+
 -- Không có policy INSERT/UPDATE/DELETE nên RLS đã chặn ghi.
 -- Thu hồi thêm quyền ghi ở mức bảng để chặn hai lớp.
 revoke insert, update, delete, truncate on
