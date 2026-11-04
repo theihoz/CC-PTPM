@@ -53,8 +53,11 @@ const ORDER_COLUMNS = `id, code, restaurant_id, recipient_name, phone, address, 
   order_items ( id, food_id, food_name, image_url, size_name, toppings, spice_level,
                 unit_price, quantity, line_total )`
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 /** Một đơn của người đang đăng nhập (RLS chặn đơn của người khác); null nếu không có. */
 export async function fetchOrder(orderId) {
+  if (!UUID.test(orderId)) return null
   const { data, error } = await client()
     .from('orders')
     .select(ORDER_COLUMNS)
@@ -63,4 +66,21 @@ export async function fetchOrder(orderId) {
     .maybeSingle()
   if (error) throw new OrderError('network', { cause: error })
   return data
+}
+
+/** Mọi đơn của người đang đăng nhập, mới nhất trước. */
+export async function fetchOrders() {
+  const { data, error } = await client()
+    .from('orders')
+    .select(
+      `id, code, total, created_at, cancelled_at,
+       restaurants ( id, name, image_url ),
+       order_items ( quantity )`,
+    )
+    .order('created_at', { ascending: false })
+  if (error) throw new OrderError('network', { cause: error })
+  return data.map((order) => ({
+    ...order,
+    itemCount: order.order_items.reduce((sum, item) => sum + item.quantity, 0),
+  }))
 }

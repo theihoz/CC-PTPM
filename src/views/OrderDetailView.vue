@@ -1,17 +1,26 @@
 <script setup>
-import { ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { fetchOrder } from '@/services/orderApi'
 import { formatVND } from '@/lib/format'
 import { SPICE_LABELS } from '@/lib/pricing'
+import { orderStatus } from '@/lib/orderStatus'
+import { useNow } from '@/composables/useNow'
 import { usePageTitle } from '@/composables/usePageTitle'
 import ErrorState from '@/components/ErrorState.vue'
+import OrderStatusBadge from '@/components/OrderStatusBadge.vue'
+import OrderTracker from '@/components/OrderTracker.vue'
 import NotFoundView from './NotFoundView.vue'
 
-// Trang đơn hàng. Ticket #10 bổ sung thanh trạng thái giao hàng và danh sách đơn.
+// Theo dõi một đơn. Trạng thái tính lại mỗi giây từ created_at, nên trang tự
+// chuyển bước mà không cần tải lại, và tải lại trang vẫn ra đúng trạng thái.
 const props = defineProps({
   orderId: { type: String, required: true },
 })
+
+const route = useRoute()
+const justPlaced = computed(() => route.query.new === '1')
+const now = useNow(1000)
 
 const order = ref(null)
 const status = ref('loading') // 'loading' | 'ready' | 'not-found' | 'error'
@@ -39,6 +48,8 @@ const optionsOf = (item) =>
 const placedAt = (iso) =>
   new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso))
 
+const tracking = computed(() => (order.value ? orderStatus(order.value, now.value) : null))
+
 usePageTitle(() => (order.value ? `Đơn ${order.value.code}` : ''))
 </script>
 
@@ -58,14 +69,36 @@ usePageTitle(() => (order.value ? `Đơn ${order.value.code}` : ''))
   />
 
   <article v-else class="mx-auto max-w-2xl space-y-6">
-    <header class="rounded-3xl bg-emerald-50 p-6 text-center">
-      <p class="text-4xl" aria-hidden="true">🎉</p>
-      <h1 class="mt-2 text-2xl font-bold">Đặt hàng thành công</h1>
-      <p class="mt-1 text-stone-600">
-        Mã đơn <strong class="text-stone-900">{{ order.code }}</strong> · đặt lúc
-        {{ placedAt(order.created_at) }}
-      </p>
-    </header>
+    <nav aria-label="Đường dẫn" class="text-sm text-stone-500">
+      <ol class="flex flex-wrap items-center gap-1">
+        <li>
+          <RouterLink :to="{ name: 'orders' }" class="hover:underline">Đơn hàng của tôi</RouterLink>
+        </li>
+        <li aria-hidden="true">›</li>
+        <li aria-current="page" class="text-stone-900">{{ order.code }}</li>
+      </ol>
+    </nav>
+
+    <p
+      v-if="justPlaced"
+      class="rounded-2xl bg-emerald-50 px-5 py-3 text-center font-medium text-emerald-900"
+    >
+      🎉 Đặt hàng thành công! Quán đã nhận đơn của bạn.
+    </p>
+
+    <section
+      class="space-y-5 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6"
+      aria-labelledby="order-heading"
+    >
+      <header class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 id="order-heading" class="text-xl font-bold sm:text-2xl">Đơn {{ order.code }}</h1>
+          <p class="text-sm text-stone-600">Đặt lúc {{ placedAt(order.created_at) }}</p>
+        </div>
+        <OrderStatusBadge :status="tracking.status" />
+      </header>
+      <OrderTracker :state="tracking" />
+    </section>
 
     <section
       class="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6"
