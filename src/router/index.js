@@ -39,6 +39,19 @@ export const routes = [
     meta: { title: 'Giỏ hàng' },
   },
   {
+    path: '/checkout',
+    name: 'checkout',
+    component: () => import('@/views/CheckoutView.vue'),
+    meta: { title: 'Đặt hàng', requiresAuth: true },
+  },
+  {
+    path: '/orders/:orderId',
+    name: 'order-detail',
+    component: () => import('@/views/OrderDetailView.vue'),
+    props: true,
+    meta: { title: 'Đơn hàng', requiresAuth: true },
+  },
+  {
     path: '/login',
     name: 'login',
     component: () => import('@/views/LoginView.vue'),
