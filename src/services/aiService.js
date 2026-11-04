@@ -5,7 +5,8 @@
 // → dùng Mock AI (luật), nên chatbot luôn trả lời được.
 import { mockSuggest } from '@/lib/mockAi'
 
-export const AI_TIMEOUT_MS = 12_000
+/** Lâu hơn tổng thời gian Function thử các model Gemini (20 giây). */
+export const AI_TIMEOUT_MS = 25_000
 export const MAX_MESSAGE_LENGTH = 500
 
 export class AiTransportError extends Error {
