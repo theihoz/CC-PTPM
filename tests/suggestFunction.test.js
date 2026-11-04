@@ -294,6 +294,8 @@ describe('các hàm phụ của Function', () => {
     ])
     expect(text).toContain('7 | Cơm | Q | Cơm | 500 kcal | 40000đ | no-lau')
     expect(text).toContain('CHỈ gợi ý món có trong THỰC ĐƠN')
+    expect(text).toContain('KHÔNG ghi id')
+    expect(text).toContain('mọi món bạn nhắc tới trong reply phải có id trong foodIds')
     expect(buildInput('hi', [])).toBe('Khách: hi\nTrợ lý:')
   })
 
