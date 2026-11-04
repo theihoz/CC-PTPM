@@ -16,16 +16,20 @@ npm run dev
 Nếu chưa điền Supabase, `npm run dev` tự dùng dữ liệu mẫu trong `src/data/menuSeed.js`. Bản build
 production thì bắt buộc phải có Supabase.
 
-| Lệnh                   | Việc                                                   |
-| ---------------------- | ------------------------------------------------------ |
-| `npm run dev`          | Chạy dev server của Vite                               |
-| `npm run build`        | Build production vào `dist/`                           |
-| `npm run lint`         | Chạy ESLint                                            |
-| `npm run format:check` | Kiểm tra định dạng bằng Prettier                       |
-| `npm test`             | Chạy Vitest                                            |
-| `npm run db:seed`      | Sinh lại `supabase/seed.sql` từ `src/data/menuSeed.js` |
+| Lệnh                     | Việc                                                   |
+| ------------------------ | ------------------------------------------------------ |
+| `npm run dev`            | Chạy dev server của Vite                               |
+| `npm run build`          | Build production vào `dist/`                           |
+| `npm run lint`           | Chạy ESLint                                            |
+| `npm run format:check`   | Kiểm tra định dạng bằng Prettier                       |
+| `npm test`               | Chạy Vitest                                            |
+| `npm run db:test-bundle` | Gộp `supabase/tests/*.sql` thành `all_tests.sql`       |
+| `npm run db:seed`        | Sinh lại `supabase/seed.sql` từ `src/data/menuSeed.js` |
 
 ## Database (Supabase)
+
+Tài liệu đầy đủ (ERD, từ điển dữ liệu, RLS, luồng `place_order` / `cancel_order`, kịch bản test,
+hướng dẫn dựng lại từ đầu): [docs/database.md](docs/database.md).
 
 Các file SQL nằm trong `supabase/`. Bạn chạy chúng bằng tay trong Supabase Dashboard → **SQL Editor**, theo
 đúng thứ tự:
