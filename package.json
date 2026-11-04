@@ -16,7 +16,8 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:seed": "node scripts/generate-seed.js"
+    "db:seed": "node scripts/generate-seed.js",
+    "db:test-bundle": "node scripts/bundle-sql-tests.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
