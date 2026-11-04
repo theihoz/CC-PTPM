@@ -30,6 +30,14 @@ const RESPONSE_SCHEMA = {
   required: ['reply', 'foodIds'],
 }
 
+/** Bỏ khoảng trắng, xuống dòng và dấu nháy bao quanh một giá trị cấu hình. */
+export function cleanSecret(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/^(['"])(.*)\1$/, '$2')
+    .trim()
+}
+
 const json = (status, body, headers = {}) =>
   new Response(JSON.stringify(body), {
     status,
@@ -182,7 +190,8 @@ export function createSuggestHandler({
     }
     if (!body) return json(400, { error: 'invalid_request' })
 
-    const apiKey = env.GEMINI_API_KEY
+    // Cắt khoảng trắng, xuống dòng, dấu nháy dính vào khi dán key vào ô nhập.
+    const apiKey = cleanSecret(env.GEMINI_API_KEY)
     if (!apiKey) return json(503, { error: 'ai_not_configured' })
 
     let menu
@@ -203,7 +212,7 @@ export function createSuggestHandler({
           'Api-Revision': GEMINI_API_REVISION,
         },
         body: JSON.stringify({
-          model: env.GEMINI_MODEL || DEFAULT_MODEL,
+          model: cleanSecret(env.GEMINI_MODEL) || DEFAULT_MODEL,
           system_instruction: buildSystemInstruction(menu),
           input: buildInput(body.message, body.history),
           response_format: { type: 'text', mime_type: 'application/json', schema: RESPONSE_SCHEMA },

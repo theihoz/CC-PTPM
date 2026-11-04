@@ -4,6 +4,7 @@ import {
   RATE_LIMIT,
   buildInput,
   buildSystemInstruction,
+  cleanSecret,
   createRateLimiter,
   createSuggestHandler,
   extractText,
@@ -106,6 +107,19 @@ describe('POST /api/suggest', () => {
     expect(body.response_format.schema.required).toEqual(['reply', 'foodIds'])
     expect(body.system_instruction).toContain('1 | Phở bò tái | Phở Hà Thành')
     expect(body.input).toBe('Khách: chào\nTrợ lý: Chào bạn\nKhách: cay\nTrợ lý:')
+  })
+
+  it('cắt khoảng trắng, xuống dòng, dấu nháy dính vào key và model khi dán', async () => {
+    const fetchImpl = fakeFetch()
+    await createSuggestHandler({
+      fetchImpl,
+      env: { ...ENV, GEMINI_API_KEY: '  "test-key"\n', GEMINI_MODEL: ' gemini-y \r\n' },
+    })(post({ message: 'a' }))
+    const init = fetchImpl.mock.calls.find(([u]) => String(u).includes('googleapis'))[1]
+    expect(init.headers['x-goog-api-key']).toBe('test-key')
+    expect(JSON.parse(init.body).model).toBe('gemini-y')
+    expect(cleanSecret("'abc'")).toBe('abc')
+    expect(cleanSecret(undefined)).toBe('')
   })
 
   it('model mặc định là bản Flash', async () => {
