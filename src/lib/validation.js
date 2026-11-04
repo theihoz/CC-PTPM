@@ -49,3 +49,25 @@ export function safeRedirect(value, fallback = '/') {
   if (path.startsWith('/login') || path.startsWith('/register')) return fallback
   return path
 }
+
+export function validateAddress(value) {
+  const address = String(value ?? '').trim()
+  if (!address) return 'Vui lòng nhập địa chỉ giao hàng.'
+  if (address.length < 5) return 'Địa chỉ quá ngắn, hãy ghi rõ số nhà, đường, quận.'
+  if (address.length > 300) return 'Địa chỉ tối đa 300 ký tự.'
+  return ''
+}
+
+export function validateNote(value) {
+  return String(value ?? '').length > 300 ? 'Ghi chú tối đa 300 ký tự.' : ''
+}
+
+/** Kiểm tra thông tin giao hàng; trả về object lỗi theo từng trường ('' là hợp lệ). */
+export function validateDelivery({ recipientName, phone, address, note }) {
+  return {
+    recipientName: validateFullName(recipientName),
+    phone: validatePhone(phone),
+    address: validateAddress(address),
+    note: validateNote(note),
+  }
+}

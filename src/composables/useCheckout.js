@@ -1,9 +1,9 @@
-import { useToastStore } from '@/stores/toast'
+import { useRouter } from 'vue-router'
 
-/** Bấm "Đặt hàng". Trang Checkout làm ở ticket #9; tạm thời báo cho khách biết. */
+/** Bấm "Đặt hàng" trong giỏ: sang trang Checkout (guard sẽ yêu cầu đăng nhập nếu cần). */
 export function useCheckout() {
-  const toast = useToastStore()
+  const router = useRouter()
   return function goToCheckout() {
-    toast.show('Chức năng đặt hàng sẽ có trong bản cập nhật tới.', { tone: 'info' })
+    router.push({ name: 'checkout' })
   }
 }
