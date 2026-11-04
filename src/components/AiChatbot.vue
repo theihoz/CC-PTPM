@@ -112,8 +112,8 @@ function addFood(food) {
             {{ message.text }}
           </p>
           <p v-if="message.notice" class="text-xs text-amber-700">{{ message.notice }}</p>
-          <p v-else-if="message.source === 'gemini'" class="text-xs text-stone-400">✨ Gemini</p>
-          <p v-else-if="message.source === 'mock'" class="text-xs text-stone-400">⚡ Gợi ý nhanh</p>
+          <p v-else-if="message.source === 'gemini'" class="text-xs text-stone-500">✨ Gemini</p>
+          <p v-else-if="message.source === 'mock'" class="text-xs text-stone-500">⚡ Gợi ý nhanh</p>
           <ul v-if="foodsOf(message).length" class="space-y-2">
             <ChatFoodCard
               v-for="food in foodsOf(message)"

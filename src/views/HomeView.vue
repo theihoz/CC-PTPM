@@ -22,7 +22,7 @@ function search() {
 <template>
   <div class="space-y-12">
     <section
-      class="rounded-3xl bg-gradient-to-br from-brand-500 to-brand-700 px-6 py-10 text-white sm:px-12 sm:py-14"
+      class="rounded-3xl bg-gradient-to-br from-brand-600 to-brand-700 px-6 py-10 text-white sm:px-12 sm:py-14"
     >
       <h1 class="text-3xl font-bold sm:text-4xl">Đói bụng? Đặt món ngay.</h1>
       <p class="mt-3 max-w-xl text-brand-50">
@@ -35,7 +35,7 @@ function search() {
           v-model="keyword"
           type="search"
           placeholder="Tìm phở, trà sữa, pizza…"
-          class="min-w-0 flex-1 rounded-xl border-0 bg-white px-4 py-3 text-stone-900 placeholder:text-stone-400 focus-visible:outline-white"
+          class="min-w-0 flex-1 rounded-xl border-0 bg-white px-4 py-3 text-stone-900 placeholder:text-stone-500 focus-visible:outline-white"
         />
         <button
           type="submit"

@@ -35,7 +35,13 @@ const available = computed(() => (food.value ? cart.remainingStock(food.value.id
 
 const { add, pendingSwitch, confirmSwitch, cancelSwitch } = useAddToCart()
 
-usePageTitle(() => food.value?.name)
+usePageTitle(
+  () => food.value?.name,
+  () =>
+    food.value
+      ? `${food.value.name} của ${restaurant.value?.name}: ${food.value.description} ${food.value.calories} kcal, giá từ ${formatVND(food.value.basePrice)}.`
+      : '',
+)
 </script>
 
 <template>
@@ -102,7 +108,7 @@ usePageTitle(() => food.value?.name)
         </span>
         <span
           v-else-if="stock === 'low'"
-          class="absolute top-4 left-4 rounded-full bg-amber-500 px-3 py-1 text-sm font-semibold text-white"
+          class="absolute top-4 left-4 rounded-full bg-amber-700 px-3 py-1 text-sm font-semibold text-white"
         >
           Sắp hết · còn {{ food.stock }}
         </span>

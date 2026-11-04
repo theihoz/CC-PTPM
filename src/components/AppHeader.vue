@@ -33,7 +33,11 @@ async function signOut() {
       class="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4"
       aria-label="Điều hướng chính"
     >
-      <RouterLink to="/" class="flex items-center gap-2 text-lg font-bold text-brand-600">
+      <RouterLink
+        to="/"
+        class="flex items-center gap-2 text-lg font-bold text-brand-600"
+        aria-label="FoodieGo, về trang chủ"
+      >
         <img src="/favicon.svg" alt="" width="28" height="28" />
         <span class="hidden min-[380px]:inline">FoodieGo</span>
       </RouterLink>
