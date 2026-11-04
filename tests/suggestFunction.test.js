@@ -6,6 +6,7 @@ import {
   buildSystemInstruction,
   cleanSecret,
   modelChain,
+  thinkingLevelFor,
   DEFAULT_MODELS,
   createRateLimiter,
   createSuggestHandler,
@@ -124,11 +125,28 @@ describe('POST /api/suggest', () => {
     expect(cleanSecret(undefined)).toBe('')
   })
 
-  it('model mặc định là bản Flash', async () => {
+  it('model mặc định là bản Flash ổn định, thinking ở mức thấp', async () => {
     const fetchImpl = fakeFetch()
     await createSuggestHandler({ fetchImpl, env: ENV })(post({ message: 'a' }))
     const init = fetchImpl.mock.calls.find(([u]) => String(u).includes('googleapis'))[1]
-    expect(JSON.parse(init.body).model).toBe('gemini-flash-latest')
+    const body = JSON.parse(init.body)
+    expect(body.model).toBe('gemini-3.6-flash')
+    expect(body.generation_config).toEqual({ max_output_tokens: 1024, thinking_level: 'low' })
+    expect(thinkingLevelFor('gemini-3.5-flash-lite')).toBe('minimal')
+  })
+
+  it('một model quá thời gian thì thử model sau', async () => {
+    const used = []
+    const fetchImpl = vi.fn(async (url, init) => {
+      if (String(url).includes('/rest/v1/foods')) return new Response(JSON.stringify(MENU_ROWS))
+      const { model } = JSON.parse(init.body)
+      used.push(model)
+      if (model === 'gemini-3.6-flash') throw new DOMException('timeout', 'TimeoutError')
+      return new Response(JSON.stringify(geminiReply({ reply: 'ok', foodIds: [1] })))
+    })
+    const response = await createSuggestHandler({ fetchImpl, env: ENV })(post({ message: 'a' }))
+    expect(response.status).toBe(200)
+    expect(used).toEqual(['gemini-3.6-flash', 'gemini-3.5-flash-lite'])
   })
 
   it('chỉ nhận POST', async () => {
@@ -188,7 +206,7 @@ describe('POST /api/suggest', () => {
       if (String(url).includes('/rest/v1/foods')) return new Response(JSON.stringify(MENU_ROWS))
       const { model } = JSON.parse(init.body)
       used.push(model)
-      if (model === 'gemini-flash-latest') {
+      if (model === 'gemini-3.6-flash') {
         return new Response(JSON.stringify({ error: { code: 'service_unavailable' } }), {
           status: 503,
         })
@@ -198,7 +216,7 @@ describe('POST /api/suggest', () => {
     const response = await createSuggestHandler({ fetchImpl, env: ENV })(post({ message: 'a' }))
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ reply: 'Từ model dự phòng', foodIds: [3] })
-    expect(used).toEqual(['gemini-flash-latest', 'gemini-3.5-flash-lite'])
+    expect(used).toEqual(['gemini-3.6-flash', 'gemini-3.5-flash-lite'])
   })
 
   it('lỗi không nên thử lại (400, key sai) thì dừng ngay', async () => {
@@ -211,7 +229,7 @@ describe('POST /api/suggest', () => {
   it('GEMINI_MODEL nhận danh sách model', () => {
     expect(modelChain(' a , b,a ')).toEqual(['a', 'b'])
     expect(modelChain('')).toEqual(DEFAULT_MODELS)
-    expect(DEFAULT_MODELS[0]).toBe('gemini-flash-latest')
+    expect(DEFAULT_MODELS[0]).toBe('gemini-3.6-flash')
   })
 
   it('không đọc được thực đơn thì 503', async () => {

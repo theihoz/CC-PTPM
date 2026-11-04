@@ -4,9 +4,9 @@
 // Bảo mật: GEMINI_API_KEY chỉ đọc ở đây (phía máy chủ), không bao giờ gửi xuống trình duyệt.
 // Gemini chỉ được chọn món trong thực đơn gửi kèm; id lạ bị loại ở cả server lẫn client.
 
-export const DEFAULT_MODEL = 'gemini-flash-latest'
+export const DEFAULT_MODEL = 'gemini-3.6-flash'
 /** Thử lần lượt khi model trước quá tải (503), hết lượt (429) hoặc không tồn tại (404). */
-export const DEFAULT_MODELS = [DEFAULT_MODEL, 'gemini-3.5-flash-lite', 'gemini-3.6-flash']
+export const DEFAULT_MODELS = [DEFAULT_MODEL, 'gemini-3.5-flash-lite', 'gemini-flash-latest']
 /** Mã lỗi của Gemini nên thử sang model khác thay vì báo lỗi ngay. */
 const RETRYABLE_STATUS = new Set([404, 429, 500, 503])
 export const MAX_MESSAGE_LENGTH = 500
@@ -14,7 +14,17 @@ export const MAX_HISTORY_TURNS = 6
 export const MAX_SUGGESTIONS = 4
 export const RATE_LIMIT = { windowMs: 60_000, max: 8 }
 const MENU_TTL_MS = 60_000
-const GEMINI_TIMEOUT_MS = 10_000
+const GEMINI_TIMEOUT_MS = 20_000
+/** Mỗi model tối đa bấy nhiêu, để một model chậm không chiếm hết thời gian của model sau. */
+const GEMINI_ATTEMPT_MS = 9_000
+
+/**
+ * Mức "suy nghĩ" thấp nhất model nhận: trả lời gợi ý món không cần suy luận dài.
+ * Bản Flash-Lite nhận 'minimal'; mọi model khác đều nhận 'low'.
+ */
+export function thinkingLevelFor(model) {
+  return model.includes('lite') ? 'minimal' : 'low'
+}
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/interactions'
 const GEMINI_API_REVISION = '2026-05-20'
 
@@ -216,13 +226,12 @@ export function createSuggestHandler({
     }
 
     // Thử từng model; model quá tải hoặc không dùng được thì chuyển model sau.
-    // Tổng thời gian cho mọi lần thử không quá GEMINI_TIMEOUT_MS.
+    // Tổng thời gian cho mọi lần thử không quá GEMINI_TIMEOUT_MS, mỗi lần không quá GEMINI_ATTEMPT_MS.
     const deadline = now() + GEMINI_TIMEOUT_MS
     const payload = {
       system_instruction: buildSystemInstruction(menu),
       input: buildInput(body.message, body.history),
       response_format: { type: 'text', mime_type: 'application/json', schema: RESPONSE_SCHEMA },
-      generation_config: { max_output_tokens: 1024 },
       store: false,
     }
     let data = null
@@ -238,8 +247,12 @@ export function createSuggestHandler({
             'x-goog-api-key': apiKey,
             'Api-Revision': GEMINI_API_REVISION,
           },
-          body: JSON.stringify({ model, ...payload }),
-          signal: AbortSignal.timeout(remaining),
+          body: JSON.stringify({
+            model,
+            ...payload,
+            generation_config: { max_output_tokens: 1024, thinking_level: thinkingLevelFor(model) },
+          }),
+          signal: AbortSignal.timeout(Math.min(remaining, GEMINI_ATTEMPT_MS)),
         })
         if (response.ok) {
           data = await response.json()
@@ -249,8 +262,9 @@ export function createSuggestHandler({
         console.error('[suggest] Gemini lỗi', model, response.status, await response.text())
         if (!RETRYABLE_STATUS.has(response.status)) break
       } catch (err) {
-        console.error('[suggest] Không gọi được Gemini', model, err)
-        break
+        // Quá thời gian thì thử model sau; lỗi mạng khác cũng vậy.
+        console.error('[suggest] Không gọi được Gemini', model, err?.name ?? err)
+        lastStatus = 504
       }
     }
     if (!data) {
