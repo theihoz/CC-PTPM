@@ -29,7 +29,7 @@ const open = computed(() => isOpenAt(props.restaurant, props.now))
       />
       <span
         class="absolute top-3 left-3 rounded-full px-2.5 py-1 text-xs font-semibold"
-        :class="open ? 'bg-emerald-600 text-white' : 'bg-stone-800/80 text-white'"
+        :class="open ? 'bg-emerald-700 text-white' : 'bg-stone-800/80 text-white'"
       >
         {{ open ? 'Đang mở cửa' : 'Đã đóng cửa' }}
       </span>

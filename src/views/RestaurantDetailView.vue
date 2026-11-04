@@ -38,7 +38,13 @@ const groups = computed(() => {
   return result
 })
 
-usePageTitle(() => restaurant.value?.name)
+usePageTitle(
+  () => restaurant.value?.name,
+  () =>
+    restaurant.value
+      ? `${restaurant.value.name}: ${restaurant.value.description} Địa chỉ ${restaurant.value.address}. Đặt món giao tận nơi trên FoodieGo.`
+      : '',
+)
 </script>
 
 <template>
@@ -87,7 +93,7 @@ usePageTitle(() => restaurant.value?.name)
         />
         <span
           class="absolute top-4 left-4 rounded-full px-3 py-1 text-sm font-semibold"
-          :class="open ? 'bg-emerald-600 text-white' : 'bg-stone-800/80 text-white'"
+          :class="open ? 'bg-emerald-700 text-white' : 'bg-stone-800/80 text-white'"
         >
           {{ open ? 'Đang mở cửa' : 'Đã đóng cửa' }}
         </span>

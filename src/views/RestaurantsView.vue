@@ -79,7 +79,7 @@ function clearFilters() {
         <div class="relative flex-1" role="search">
           <label for="restaurant-search" class="sr-only">Tìm theo tên quán hoặc tên món</label>
           <span
-            class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-stone-400"
+            class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-stone-500"
             aria-hidden="true"
           >
             🔍

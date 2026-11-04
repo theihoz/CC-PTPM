@@ -33,7 +33,7 @@ const stock = computed(() => stockStatus(props.food.stock))
       </span>
       <span
         v-else-if="stock === 'low'"
-        class="absolute top-3 left-3 rounded-full bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white"
+        class="absolute top-3 left-3 rounded-full bg-amber-700 px-2.5 py-1 text-xs font-semibold text-white"
       >
         Sắp hết
       </span>
