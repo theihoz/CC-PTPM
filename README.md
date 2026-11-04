@@ -13,13 +13,32 @@ cp .env.example .env   # rồi điền VITE_SUPABASE_URL và VITE_SUPABASE_ANON_
 npm run dev
 ```
 
-| Lệnh                   | Việc                             |
-| ---------------------- | -------------------------------- |
-| `npm run dev`          | Chạy dev server của Vite         |
-| `npm run build`        | Build production vào `dist/`     |
-| `npm run lint`         | Chạy ESLint                      |
-| `npm run format:check` | Kiểm tra định dạng bằng Prettier |
-| `npm test`             | Chạy Vitest                      |
+Nếu chưa điền Supabase, `npm run dev` tự dùng dữ liệu mẫu trong `src/data/menuSeed.js`. Bản build
+production thì bắt buộc phải có Supabase.
+
+| Lệnh                   | Việc                                                   |
+| ---------------------- | ------------------------------------------------------ |
+| `npm run dev`          | Chạy dev server của Vite                               |
+| `npm run build`        | Build production vào `dist/`                           |
+| `npm run lint`         | Chạy ESLint                                            |
+| `npm run format:check` | Kiểm tra định dạng bằng Prettier                       |
+| `npm test`             | Chạy Vitest                                            |
+| `npm run db:seed`      | Sinh lại `supabase/seed.sql` từ `src/data/menuSeed.js` |
+
+## Database (Supabase)
+
+Các file SQL nằm trong `supabase/`. Bạn chạy chúng bằng tay trong Supabase Dashboard → **SQL Editor**, theo
+đúng thứ tự:
+
+1. Các file trong `supabase/migrations/`, theo thứ tự tên file. Mỗi file tạo bảng, ràng buộc, index, trigger
+   và RLS.
+2. `supabase/seed.sql`: nạp dữ liệu mẫu (6 danh mục, 7 quán, 41 món). File này xóa dữ liệu thực đơn cũ
+   trước khi nạp, nên chạy lại nhiều lần vẫn an toàn.
+
+Muốn sửa dữ liệu mẫu thì sửa `src/data/menuSeed.js`, chạy `npm run db:seed`, rồi chạy lại `seed.sql`.
+
+Lấy `VITE_SUPABASE_URL` và `VITE_SUPABASE_ANON_KEY` ở Project Settings → API (dùng anon/publishable key, không
+dùng service_role).
 
 ## CI/CD
 
