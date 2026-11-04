@@ -18,6 +18,8 @@ const props = defineProps({
   /** Số phần còn có thể thêm (tồn kho trừ phần đã có trong giỏ). */
   available: { type: Number, required: true },
   busy: { type: Boolean, default: false },
+  /** Chữ trên nút khi không thêm được nữa. */
+  soldOutLabel: { type: String, default: 'Hết món' },
 })
 
 const emit = defineEmits(['add'])
@@ -178,7 +180,7 @@ const optionClass =
       disabled
       class="w-full cursor-not-allowed rounded-2xl bg-stone-300 py-3.5 font-semibold text-stone-600"
     >
-      Hết món
+      {{ soldOutLabel }}
     </button>
     <button
       v-else

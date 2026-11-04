@@ -31,6 +31,12 @@ export const routes = [
     meta: { title: 'Chi tiết món' },
   },
   {
+    path: '/cart',
+    name: 'cart',
+    component: () => import('@/views/CartView.vue'),
+    meta: { title: 'Giỏ hàng' },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/views/NotFoundView.vue'),
