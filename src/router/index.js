@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { APP_NAME } from '@/lib/constants'
+import { safeRedirect } from '@/lib/validation'
+import { useAuthStore } from '@/stores/auth'
 
 export { APP_NAME }
 
@@ -37,6 +39,24 @@ export const routes = [
     meta: { title: 'Giỏ hàng' },
   },
   {
+    path: '/login',
+    name: 'login',
+    component: () => import('@/views/LoginView.vue'),
+    meta: { title: 'Đăng nhập', guestOnly: true },
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: () => import('@/views/RegisterView.vue'),
+    meta: { title: 'Đăng ký', guestOnly: true },
+  },
+  {
+    path: '/account',
+    name: 'account',
+    component: () => import('@/views/AccountView.vue'),
+    meta: { title: 'Tài khoản', requiresAuth: true },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/views/NotFoundView.vue'),
@@ -46,6 +66,26 @@ export const routes = [
 
 export function pageTitle(route) {
   return route.meta?.title ? `${route.meta.title} · ${APP_NAME}` : APP_NAME
+}
+
+/**
+ * Guard toàn cục:
+ * - route có `meta.requiresAuth` mà chưa đăng nhập → /login?redirect=<đường dẫn cũ>
+ * - route có `meta.guestOnly` (đăng nhập, đăng ký) mà đã đăng nhập → về redirect hoặc trang chủ
+ */
+export function installAuthGuard(router) {
+  router.beforeEach(async (to) => {
+    if (!to.meta.requiresAuth && !to.meta.guestOnly) return true
+    const auth = useAuthStore()
+    await auth.ready()
+    if (to.meta.requiresAuth && !auth.isSignedIn) {
+      return { name: 'login', query: { redirect: to.fullPath } }
+    }
+    if (to.meta.guestOnly && auth.isSignedIn) {
+      return safeRedirect(to.query.redirect)
+    }
+    return true
+  })
 }
 
 const router = createRouter({
@@ -58,6 +98,8 @@ const router = createRouter({
     return { top: 0 }
   },
 })
+
+installAuthGuard(router)
 
 router.afterEach((to) => {
   document.title = pageTitle(to)
