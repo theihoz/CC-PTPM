@@ -5,6 +5,10 @@
 // Gemini chỉ được chọn món trong thực đơn gửi kèm; id lạ bị loại ở cả server lẫn client.
 
 export const DEFAULT_MODEL = 'gemini-flash-latest'
+/** Thử lần lượt khi model trước quá tải (503), hết lượt (429) hoặc không tồn tại (404). */
+export const DEFAULT_MODELS = [DEFAULT_MODEL, 'gemini-3.5-flash-lite', 'gemini-3.6-flash']
+/** Mã lỗi của Gemini nên thử sang model khác thay vì báo lỗi ngay. */
+const RETRYABLE_STATUS = new Set([404, 429, 500, 503])
 export const MAX_MESSAGE_LENGTH = 500
 export const MAX_HISTORY_TURNS = 6
 export const MAX_SUGGESTIONS = 4
@@ -28,6 +32,15 @@ const RESPONSE_SCHEMA = {
     },
   },
   required: ['reply', 'foodIds'],
+}
+
+/** Danh sách model từ GEMINI_MODEL (có thể nhiều model, cách nhau bằng dấu phẩy). */
+export function modelChain(value) {
+  const models = cleanSecret(value)
+    .split(',')
+    .map((m) => cleanSecret(m))
+    .filter(Boolean)
+  return models.length ? [...new Set(models)] : DEFAULT_MODELS
 }
 
 /** Bỏ khoảng trắng, xuống dòng và dấu nháy bao quanh một giá trị cấu hình. */
@@ -202,34 +215,48 @@ export function createSuggestHandler({
       return json(503, { error: 'menu_unavailable' })
     }
 
-    let data
-    try {
-      const response = await fetchImpl(GEMINI_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-          'Api-Revision': GEMINI_API_REVISION,
-        },
-        body: JSON.stringify({
-          model: cleanSecret(env.GEMINI_MODEL) || DEFAULT_MODEL,
-          system_instruction: buildSystemInstruction(menu),
-          input: buildInput(body.message, body.history),
-          response_format: { type: 'text', mime_type: 'application/json', schema: RESPONSE_SCHEMA },
-          generation_config: { max_output_tokens: 1024 },
-          store: false,
-        }),
-        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
-      })
-      if (response.status === 429) return json(429, { error: 'rate_limited' })
-      if (!response.ok) {
-        console.error('[suggest] Gemini lỗi', response.status, await response.text())
-        return json(502, { error: 'ai_error' })
+    // Thử từng model; model quá tải hoặc không dùng được thì chuyển model sau.
+    // Tổng thời gian cho mọi lần thử không quá GEMINI_TIMEOUT_MS.
+    const deadline = now() + GEMINI_TIMEOUT_MS
+    const payload = {
+      system_instruction: buildSystemInstruction(menu),
+      input: buildInput(body.message, body.history),
+      response_format: { type: 'text', mime_type: 'application/json', schema: RESPONSE_SCHEMA },
+      generation_config: { max_output_tokens: 1024 },
+      store: false,
+    }
+    let data = null
+    let lastStatus = 502
+    for (const model of modelChain(env.GEMINI_MODEL)) {
+      const remaining = deadline - now()
+      if (remaining <= 500) break
+      try {
+        const response = await fetchImpl(GEMINI_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+            'Api-Revision': GEMINI_API_REVISION,
+          },
+          body: JSON.stringify({ model, ...payload }),
+          signal: AbortSignal.timeout(remaining),
+        })
+        if (response.ok) {
+          data = await response.json()
+          break
+        }
+        lastStatus = response.status
+        console.error('[suggest] Gemini lỗi', model, response.status, await response.text())
+        if (!RETRYABLE_STATUS.has(response.status)) break
+      } catch (err) {
+        console.error('[suggest] Không gọi được Gemini', model, err)
+        break
       }
-      data = await response.json()
-    } catch (err) {
-      console.error('[suggest] Không gọi được Gemini', err)
-      return json(502, { error: 'ai_error' })
+    }
+    if (!data) {
+      return lastStatus === 429
+        ? json(429, { error: 'rate_limited' })
+        : json(502, { error: 'ai_error' })
     }
 
     let parsed

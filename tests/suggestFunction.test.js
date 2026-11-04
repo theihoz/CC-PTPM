@@ -5,6 +5,8 @@ import {
   buildInput,
   buildSystemInstruction,
   cleanSecret,
+  modelChain,
+  DEFAULT_MODELS,
   createRateLimiter,
   createSuggestHandler,
   extractText,
@@ -172,12 +174,44 @@ describe('POST /api/suggest', () => {
     }
   })
 
-  it('Gemini hết lượt thì 429', async () => {
+  it('mọi model đều hết lượt thì 429', async () => {
     const response = await createSuggestHandler({
       fetchImpl: fakeFetch({ gemini: { status: 429, body: {} } }),
       env: ENV,
     })(post({ message: 'a' }))
     expect(response.status).toBe(429)
+  })
+
+  it('model chính quá tải thì tự thử model dự phòng', async () => {
+    const used = []
+    const fetchImpl = vi.fn(async (url, init) => {
+      if (String(url).includes('/rest/v1/foods')) return new Response(JSON.stringify(MENU_ROWS))
+      const { model } = JSON.parse(init.body)
+      used.push(model)
+      if (model === 'gemini-flash-latest') {
+        return new Response(JSON.stringify({ error: { code: 'service_unavailable' } }), {
+          status: 503,
+        })
+      }
+      return new Response(JSON.stringify(geminiReply({ reply: 'Từ model dự phòng', foodIds: [3] })))
+    })
+    const response = await createSuggestHandler({ fetchImpl, env: ENV })(post({ message: 'a' }))
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ reply: 'Từ model dự phòng', foodIds: [3] })
+    expect(used).toEqual(['gemini-flash-latest', 'gemini-3.5-flash-lite'])
+  })
+
+  it('lỗi không nên thử lại (400, key sai) thì dừng ngay', async () => {
+    const fetchImpl = fakeFetch({ gemini: { status: 400, body: { error: 'API_KEY_INVALID' } } })
+    const response = await createSuggestHandler({ fetchImpl, env: ENV })(post({ message: 'a' }))
+    expect(response.status).toBe(502)
+    expect(fetchImpl.mock.calls.filter(([u]) => String(u).includes('googleapis'))).toHaveLength(1)
+  })
+
+  it('GEMINI_MODEL nhận danh sách model', () => {
+    expect(modelChain(' a , b,a ')).toEqual(['a', 'b'])
+    expect(modelChain('')).toEqual(DEFAULT_MODELS)
+    expect(DEFAULT_MODELS[0]).toBe('gemini-flash-latest')
   })
 
   it('không đọc được thực đơn thì 503', async () => {
