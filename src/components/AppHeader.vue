@@ -55,6 +55,14 @@ async function signOut() {
         </RouterLink>
         <template v-if="auth.isSignedIn">
           <RouterLink
+            :to="{ name: 'orders' }"
+            class="rounded-lg px-2 py-2 hover:bg-stone-100 sm:px-3"
+            active-class="text-brand-600"
+          >
+            <span aria-hidden="true" class="sm:hidden">🧾</span>
+            <span class="sr-only sm:not-sr-only">Đơn hàng</span>
+          </RouterLink>
+          <RouterLink
             :to="{ name: 'account' }"
             class="flex max-w-32 items-center gap-1 rounded-lg px-2 py-2 hover:bg-stone-100 sm:px-3"
             active-class="text-brand-600"

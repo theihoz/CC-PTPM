@@ -45,6 +45,12 @@ export const routes = [
     meta: { title: 'Đặt hàng', requiresAuth: true },
   },
   {
+    path: '/orders',
+    name: 'orders',
+    component: () => import('@/views/OrdersView.vue'),
+    meta: { title: 'Đơn hàng của tôi', requiresAuth: true },
+  },
+  {
     path: '/orders/:orderId',
     name: 'order-detail',
     component: () => import('@/views/OrderDetailView.vue'),

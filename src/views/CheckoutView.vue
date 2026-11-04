@@ -50,7 +50,11 @@ async function submit() {
   const result = await orders.placeOrder(form)
   if (result.ok) {
     toast.show(`Đặt hàng thành công! Mã đơn ${result.order.code}.`)
-    router.replace({ name: 'order-detail', params: { orderId: result.order.id } })
+    router.replace({
+      name: 'order-detail',
+      params: { orderId: result.order.id },
+      query: { new: '1' },
+    })
     return
   }
   failure.value = { message: result.message, shortages: result.shortages }
