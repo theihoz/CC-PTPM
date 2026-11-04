@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { createAiService } from '@/services/aiService'
+import { createHttpTransport } from '@/services/aiTransport'
 import { useMenuStore } from './menu'
 
 let nextId = 1
@@ -18,12 +19,14 @@ export const useChatStore = defineStore('chat', () => {
   /** [{ id, role: 'user' | 'assistant', text, foodIds, source, notice }] */
   const messages = ref([])
 
+  // Gemini qua /api/suggest; Function lỗi hoặc không có (npm run dev) thì tự dùng Mock AI.
   let service = createAiService({
     getFoods: () => menu.foods,
     categorySlugOf: (food) => menu.categoryById(food.categoryId)?.slug ?? null,
+    transport: createHttpTransport(),
   })
 
-  /** Thay nguồn AI (Gemini ở ticket #13, hoặc bản giả trong test). */
+  /** Thay nguồn AI (bản giả trong test). */
   function useService(next) {
     service = next
   }
