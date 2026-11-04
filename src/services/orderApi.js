@@ -16,6 +16,27 @@ function client() {
   return supabase
 }
 
+const PLACE_ORDER_ERRORS = [
+  'not_authenticated',
+  'empty_cart',
+  'invalid_item',
+  'mixed_restaurants',
+  'invalid_delivery',
+  'below_minimum',
+  'out_of_stock',
+]
+const CANCEL_ORDER_ERRORS = [
+  'not_authenticated',
+  'order_not_found',
+  'already_cancelled',
+  'too_late',
+]
+
+/** Mã lỗi nghiệp vụ do RPC raise; lỗi khác (mạng, máy chủ) coi là 'network'. */
+function errorCode(error, known) {
+  return known.includes(error.message) ? error.message : 'network'
+}
+
 function parseDetails(details) {
   try {
     return JSON.parse(details)
@@ -31,16 +52,7 @@ function parseDetails(details) {
 export async function placeOrder(items, delivery) {
   const { data, error } = await client().rpc('place_order', { items, delivery })
   if (error) {
-    const known = [
-      'not_authenticated',
-      'empty_cart',
-      'invalid_item',
-      'mixed_restaurants',
-      'invalid_delivery',
-      'below_minimum',
-      'out_of_stock',
-    ]
-    const code = known.includes(error.message) ? error.message : 'network'
+    const code = errorCode(error, PLACE_ORDER_ERRORS)
     const shortages = code === 'out_of_stock' ? (parseDetails(error.details) ?? []) : []
     throw new OrderError(code, { shortages, cause: error })
   }
@@ -83,4 +95,14 @@ export async function fetchOrders() {
     ...order,
     itemCount: order.order_items.reduce((sum, item) => sum + item.quantity, 0),
   }))
+}
+
+/**
+ * Hủy đơn còn đang chuẩn bị. Server tự kiểm tra thời gian và hoàn kho.
+ * @returns {{ id: string, cancelledAt: string }}
+ */
+export async function cancelOrder(orderId) {
+  const { data, error } = await client().rpc('cancel_order', { order_id: orderId })
+  if (error) throw new OrderError(errorCode(error, CANCEL_ORDER_ERRORS), { cause: error })
+  return data
 }

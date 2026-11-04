@@ -12,6 +12,10 @@ const MESSAGES = {
   below_minimum: `Đơn tối thiểu ${formatVND(MIN_ORDER_SUBTOTAL)}. Vui lòng thêm món.`,
   out_of_stock: 'Một số món không còn đủ số lượng.',
   network: 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.',
+  // cancel_order
+  order_not_found: 'Không tìm thấy đơn hàng.',
+  already_cancelled: 'Đơn này đã được hủy trước đó.',
+  too_late: 'Quán đã chuẩn bị xong và giao cho shipper, không thể hủy đơn nữa.',
 }
 
 export function orderErrorMessage(code) {

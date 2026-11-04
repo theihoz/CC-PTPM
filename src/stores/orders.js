@@ -48,5 +48,24 @@ export const useOrdersStore = defineStore('orders', () => {
     }
   }
 
-  return { placing, placeOrder }
+  const cancelling = ref(false)
+
+  /** Hủy đơn. Thành công: { ok: true, cancelledAt }; lỗi: { ok: false, code, message }. */
+  async function cancelOrder(orderId) {
+    if (cancelling.value) return { ok: false, code: 'busy', message: '' }
+    cancelling.value = true
+    try {
+      const { cancelledAt } = await orderApi.cancelOrder(orderId)
+      // Kho vừa được hoàn lại trên máy chủ.
+      menu.load({ force: true })
+      return { ok: true, cancelledAt }
+    } catch (err) {
+      const code = err?.code ?? 'network'
+      return { ok: false, code, message: orderErrorMessage(code) }
+    } finally {
+      cancelling.value = false
+    }
+  }
+
+  return { placing, placeOrder, cancelling, cancelOrder }
 })
