@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { useMenuStore } from './menu'
-import { lineKey, normalizeSelection, summarize } from '@/lib/cart'
+import { lineKey, mergeCarts, normalizeSelection, summarize } from '@/lib/cart'
 import { unitPrice } from '@/lib/pricing'
 
 /**
@@ -27,10 +27,10 @@ export const useCartStore = defineStore('cart', () => {
     items.value = state?.items ? state.items.map((item) => ({ ...item, key: lineKey(item) })) : []
   }
 
-  function persist() {
-    if (!repository) return
-    const state = {
-      restaurantId: restaurantId.value,
+  /** Trạng thái giỏ dạng dữ liệu thuần, đúng hình dạng repository lưu. */
+  function snapshot() {
+    return {
+      restaurantId: items.value.length ? restaurantId.value : null,
       items: items.value.map(({ foodId, sizeId, toppingIds, spiceLevel, quantity }) => ({
         foodId,
         sizeId,
@@ -39,17 +39,77 @@ export const useCartStore = defineStore('cart', () => {
         quantity,
       })),
     }
-    Promise.resolve(repository.save(state)).catch((err) =>
+  }
+
+  function persist() {
+    if (!repository) return
+    Promise.resolve(repository.save(snapshot())).catch((err) =>
       console.error('[cart] Không lưu được giỏ hàng', err),
     )
   }
 
-  /** Gắn nơi lưu giỏ và nạp giỏ đã lưu. Gọi lại khi đăng nhập/đăng xuất để đổi nơi lưu. */
-  async function useRepository(repo) {
+  function attach(repo) {
     unsubscribe?.()
     repository = repo
-    applyState(await repo.load())
     unsubscribe = repo.subscribe?.((state) => applyState(state)) ?? null
+  }
+
+  /** Gắn nơi lưu giỏ và nạp giỏ đã lưu (thay giỏ hiện tại). */
+  async function useRepository(repo) {
+    attach(repo)
+    applyState(await repo.load())
+  }
+
+  // ── Đăng nhập: gộp giỏ trên máy vào giỏ tài khoản ───────────────────────
+  // Thực đơn chưa tải được thì không cắt theo tồn kho, để không xóa nhầm giỏ của khách.
+  // Số lượng vẫn được kiểm tra lại khi đặt hàng.
+  function mergeStockOf() {
+    if (menu.status !== 'ready') return () => Infinity
+    return (foodId) => menu.foodById(foodId)?.stock ?? 0
+  }
+
+  /** Hai giỏ khác quán đang chờ khách chọn: { local, remote } hoặc null. */
+  const pendingConflict = ref(null)
+
+  /**
+   * Chuyển sang giỏ của tài khoản và gộp giỏ đang có trên máy vào đó.
+   * Trả về 'merged', hoặc 'conflict' khi hai giỏ khác quán (giỏ tài khoản được hiển thị
+   * tạm, chờ resolveConflict).
+   */
+  async function mergeOnLogin(remoteRepo) {
+    const local = snapshot()
+    const [remote] = await Promise.all([remoteRepo.load(), menu.load()])
+    attach(remoteRepo)
+    const stockOf = mergeStockOf()
+    const result = mergeCarts(local, remote, stockOf)
+    if (result.status === 'conflict') {
+      pendingConflict.value = { local: result.local, remote: result.remote }
+      applyState(result.remote)
+      return 'conflict'
+    }
+    applyState(result.state)
+    if (local.items.length) persist()
+    return 'merged'
+  }
+
+  /** Khách chọn giữ giỏ nào khi hai giỏ khác quán: 'local' (trên máy) hoặc 'remote' (tài khoản). */
+  function resolveConflict(choice) {
+    const conflict = pendingConflict.value
+    if (!conflict) return
+    pendingConflict.value = null
+    if (choice === 'local') {
+      const stockOf = mergeStockOf()
+      applyState(mergeCarts(conflict.local, null, stockOf).state)
+      persist()
+    }
+  }
+
+  /** Đăng xuất: bỏ giỏ đang hiển thị (giỏ tài khoản vẫn nằm trên máy chủ) và về giỏ khách. */
+  async function switchToGuest(guestRepo) {
+    pendingConflict.value = null
+    attach(guestRepo)
+    applyState(null)
+    persist()
   }
 
   // ── Getter ──────────────────────────────────────────────────────────────
@@ -191,7 +251,11 @@ export const useCartStore = defineStore('cart', () => {
     meetsMinimum,
     amountToMinimum,
     remainingStock,
+    pendingConflict,
     useRepository,
+    mergeOnLogin,
+    resolveConflict,
+    switchToGuest,
     addItem,
     replaceWith,
     updateQuantity,

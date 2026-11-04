@@ -77,3 +77,58 @@ export function createMemoryCartRepository(initial = null) {
     },
   }
 }
+
+/**
+ * Giỏ hàng của người đã đăng nhập, lưu trong bảng cart_items.
+ * Mỗi lần lưu gửi toàn bộ giỏ qua RPC replace_cart (một transaction).
+ * Các lần lưu liên tiếp được xếp hàng: chỉ một request chạy tại một thời điểm,
+ * và các thay đổi dồn lại trong lúc chờ chỉ gửi trạng thái mới nhất.
+ */
+export function createSupabaseCartRepository(client) {
+  let latest = null
+  let running = null
+
+  async function flush() {
+    try {
+      while (latest) {
+        const state = latest
+        latest = null
+        const { error } = await client.rpc('replace_cart', { items: state.items })
+        if (error) throw error
+      }
+    } finally {
+      // Đặt lại ngay trong cùng đoạn chạy đồng bộ với lần kiểm tra `latest` cuối,
+      // để một lần lưu mới không bao giờ rơi vào khoảng trống giữa hai bước.
+      running = null
+    }
+  }
+
+  return {
+    async load() {
+      const { data, error } = await client
+        .from('cart_items')
+        .select('food_id, size_id, topping_ids, spice_level, quantity, foods ( restaurant_id )')
+        .order('created_at')
+      if (error) throw error
+      const restaurantId = data[0]?.foods?.restaurant_id ?? null
+      return sanitizeCartState({
+        restaurantId,
+        items: data
+          // Giỏ chỉ một quán; dữ liệu lệch (nếu có) bị bỏ qua.
+          .filter((row) => row.foods?.restaurant_id === restaurantId)
+          .map((row) => ({
+            foodId: Number(row.food_id),
+            sizeId: row.size_id == null ? null : Number(row.size_id),
+            toppingIds: (row.topping_ids ?? []).map(Number),
+            spiceLevel: row.spice_level,
+            quantity: row.quantity,
+          })),
+      })
+    },
+    save(state) {
+      latest = state
+      if (!running) running = flush()
+      return running
+    },
+  }
+}
