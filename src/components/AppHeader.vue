@@ -21,6 +21,13 @@ import { RouterLink } from 'vue-router'
         >
           Trang chủ
         </RouterLink>
+        <RouterLink
+          :to="{ name: 'restaurants' }"
+          class="rounded-lg px-3 py-2 hover:bg-stone-100"
+          active-class="text-brand-600"
+        >
+          Quán ăn
+        </RouterLink>
       </div>
     </nav>
   </header>

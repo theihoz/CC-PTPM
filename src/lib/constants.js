@@ -14,3 +14,9 @@ export const SPICE_LEVELS = [0, 1, 2, 3, 4]
 export function shippingFeeFor(subtotal) {
   return subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE
 }
+
+/** Món còn từ mức này trở xuống thì hiện nhãn "Sắp hết". */
+export const LOW_STOCK_THRESHOLD = 5
+
+/** Múi giờ dùng để tính quán đang mở hay đóng. */
+export const RESTAURANT_TIME_ZONE = 'Asia/Ho_Chi_Minh'
