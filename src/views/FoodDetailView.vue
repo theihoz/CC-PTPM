@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useMenu } from '@/composables/useMenu'
 import { usePageTitle } from '@/composables/usePageTitle'
@@ -9,6 +9,9 @@ import { tagLabel } from '@/lib/tags'
 import SmartImage from '@/components/SmartImage.vue'
 import FoodOptions from '@/components/FoodOptions.vue'
 import ErrorState from '@/components/ErrorState.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import { useAddToCart } from '@/composables/useAddToCart'
+import { useCartStore } from '@/stores/cart'
 import NotFoundView from './NotFoundView.vue'
 
 const props = defineProps({
@@ -26,13 +29,11 @@ const food = computed(() => {
 })
 const stock = computed(() => (food.value ? stockStatus(food.value.stock) : 'out'))
 
-// Giỏ hàng (ticket #6) sẽ trừ phần đã có trong giỏ khỏi con số này.
-const available = computed(() => food.value?.stock ?? 0)
+const cart = useCartStore()
+// Số phần còn thêm được = tồn kho − phần món này đã có trong giỏ.
+const available = computed(() => (food.value ? cart.remainingStock(food.value.id) : 0))
 
-const notice = ref('')
-function onAdd() {
-  notice.value = 'Giỏ hàng đang được hoàn thiện, bạn sẽ thêm được món trong bản cập nhật tới.'
-}
+const { add, pendingSwitch, confirmSwitch, cancelSwitch } = useAddToCart()
 
 usePageTitle(() => food.value?.name)
 </script>
@@ -140,16 +141,28 @@ usePageTitle(() => food.value?.name)
           </dl>
         </header>
 
-        <FoodOptions :food="food" :available="available" @add="onAdd" />
-
-        <p
-          v-if="notice"
-          role="status"
-          class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
-        >
-          {{ notice }}
-        </p>
+        <FoodOptions
+          :food="food"
+          :available="available"
+          :sold-out-label="food.stock > 0 ? 'Bạn đã thêm hết phần còn lại vào giỏ' : 'Hết món'"
+          @add="add"
+        />
       </div>
     </div>
+
+    <ConfirmDialog
+      :open="Boolean(pendingSwitch)"
+      title="Xóa giỏ hiện tại?"
+      :message="
+        pendingSwitch
+          ? `Giỏ hàng đang có món của ${pendingSwitch.currentName}. Mỗi đơn chỉ đặt từ một quán, bạn có muốn xóa giỏ hiện tại để thêm món từ ${pendingSwitch.nextName}?`
+          : ''
+      "
+      confirm-label="Xóa giỏ và thêm món"
+      cancel-label="Giữ giỏ hiện tại"
+      danger
+      @confirm="confirmSwitch"
+      @cancel="cancelSwitch"
+    />
   </article>
 </template>

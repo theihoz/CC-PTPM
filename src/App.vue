@@ -1,5 +1,6 @@
 <script setup>
 import AppHeader from '@/components/AppHeader.vue'
+import ToastHost from '@/components/ToastHost.vue'
 </script>
 
 <template>
@@ -18,4 +19,5 @@ import AppHeader from '@/components/AppHeader.vue'
       © {{ new Date().getFullYear() }} FoodieGo · Đồ án Vue 3
     </footer>
   </div>
+  <ToastHost />
 </template>
