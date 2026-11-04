@@ -20,3 +20,6 @@ export const LOW_STOCK_THRESHOLD = 5
 
 /** Múi giờ dùng để tính quán đang mở hay đóng. */
 export const RESTAURANT_TIME_ZONE = 'Asia/Ho_Chi_Minh'
+
+/** Tên ứng dụng, dùng trong tiêu đề tab. */
+export const APP_NAME = 'FoodieGo'

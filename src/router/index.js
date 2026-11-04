@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { APP_NAME } from '@/lib/constants'
 
-export const APP_NAME = 'FoodieGo'
+export { APP_NAME }
 
 export const routes = [
   {
@@ -16,17 +17,17 @@ export const routes = [
     meta: { title: 'Quán ăn' },
   },
   {
-    // Tạm thời: trang chi tiết quán làm ở ticket #5.
     path: '/restaurants/:id(\\d+)',
     name: 'restaurant-detail',
-    component: () => import('@/views/ComingSoonView.vue'),
+    component: () => import('@/views/RestaurantDetailView.vue'),
+    props: true,
     meta: { title: 'Chi tiết quán' },
   },
   {
-    // Tạm thời: trang chi tiết món làm ở ticket #5.
     path: '/restaurants/:id(\\d+)/foods/:foodId(\\d+)',
     name: 'food-detail',
-    component: () => import('@/views/ComingSoonView.vue'),
+    component: () => import('@/views/FoodDetailView.vue'),
+    props: true,
     meta: { title: 'Chi tiết món' },
   },
   {
