@@ -5,12 +5,21 @@ export class OwnerError extends Error {
   constructor(code, { cause } = {}) {
     super(code, { cause })
     this.name = 'OwnerError'
-    /** 'not_configured' | 'not_authenticated' | 'invalid_restaurant' | 'network' */
+    /**
+     * 'not_configured' | 'not_authenticated' | 'invalid_restaurant' | 'no_restaurant' |
+     * 'food_not_found' | 'invalid_food' | 'network'
+     */
     this.code = code
   }
 }
 
-const KNOWN = ['not_authenticated', 'invalid_restaurant']
+const KNOWN = [
+  'not_authenticated',
+  'invalid_restaurant',
+  'no_restaurant',
+  'food_not_found',
+  'invalid_food',
+]
 
 function client() {
   if (!isSupabaseConfigured) throw new OwnerError('not_configured')
@@ -59,4 +68,51 @@ export async function saveMyRestaurant(payload) {
   const { data, error } = await client().rpc('save_my_restaurant', { payload })
   if (error) fail(error)
   return { id: Number(data.id), slug: data.slug, created: Boolean(data.created) }
+}
+
+function toFood(row) {
+  return {
+    id: Number(row.id),
+    categoryId: row.category_id == null ? null : Number(row.category_id),
+    name: row.name,
+    description: row.description ?? '',
+    imageUrl: row.image_url ?? '',
+    basePrice: Number(row.base_price),
+    calories: Number(row.calories ?? 0),
+    tags: row.tags ?? [],
+    stock: Number(row.stock ?? 0),
+    hasSpice: Boolean(row.has_spice),
+    isAvailable: row.is_available !== false,
+    sizes: (row.sizes ?? []).map((s) => ({
+      id: Number(s.id),
+      name: s.name,
+      priceDelta: Number(s.priceDelta ?? 0),
+      isDefault: Boolean(s.isDefault),
+    })),
+    toppings: (row.toppings ?? []).map((t) => ({
+      id: Number(t.id),
+      name: t.name,
+      price: Number(t.price ?? 0),
+    })),
+  }
+}
+
+/** Mọi món của quán mình, kể cả món Ngừng bán, kèm size và topping. */
+export async function fetchMyFoods() {
+  const { data, error } = await client().rpc('my_foods')
+  if (error) fail(error)
+  return (data ?? []).map(toFood)
+}
+
+/** Thêm món (payload không có id) hoặc sửa món của quán mình. @returns {{ id: number, created: boolean }} */
+export async function saveFood(payload) {
+  const { data, error } = await client().rpc('save_food', { payload })
+  if (error) fail(error)
+  return { id: Number(data.id), created: Boolean(data.created) }
+}
+
+/** Xóa hẳn một món của quán mình. */
+export async function deleteFood(foodId) {
+  const { error } = await client().rpc('delete_food', { food_id: foodId })
+  if (error) fail(error)
 }

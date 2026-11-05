@@ -5,7 +5,7 @@ FoodieGo dùng **Supabase** (PostgreSQL 17) làm backend:
 - **Supabase Auth** quản lý tài khoản.
 - **PostgreSQL** lưu thực đơn, hồ sơ, giỏ hàng và đơn hàng.
 - **Row Level Security (RLS)** quyết định ai được đọc và ghi dòng nào.
-- **RPC** (các hàm PL/pgSQL) xử lý mọi nghiệp vụ cần chạy trong transaction: đặt hàng, hủy đơn, lưu giỏ hàng, đăng ký và sửa quán.
+- **RPC** (các hàm PL/pgSQL) xử lý mọi nghiệp vụ cần chạy trong transaction: đặt hàng, hủy đơn, lưu giỏ hàng, đăng ký và sửa quán, thêm, sửa và xóa món.
 
 Nguyên tắc thiết kế:
 
@@ -25,6 +25,7 @@ Tất cả SQL nằm trong thư mục `supabase/`:
 | `migrations/20261104000400_orders.sql`           | `orders`, `order_items`, `order_code_counters` và RPC `place_order`                                       |
 | `migrations/20261104000500_cancel_order.sql`     | RPC `cancel_order`                                                                                        |
 | `migrations/20261105000100_restaurant_owner.sql` | Chủ quán: `owner_id`, `is_open`, RPC `my_restaurant`, `save_my_restaurant`, trigger chặn đơn khi Tạm đóng |
+| `migrations/20261105000200_owner_foods.sql`      | Chủ quán quản lý món: RPC `my_foods`, `save_food`, `delete_food`, giới hạn độ dài tên món                 |
 | `seed.sql`                                       | Dữ liệu mẫu, sinh từ `src/data/menuSeed.js` bằng `npm run db:seed`                                        |
 | `tests/all_tests.sql`                            | Toàn bộ kịch bản test, sinh bằng `npm run db:test-bundle`                                                 |
 
@@ -350,10 +351,13 @@ Thực đơn bị thu hồi mọi quyền `INSERT`, `UPDATE`, `DELETE`, `TRUNCAT
 | `my_restaurant()`                          | **definer**    | —      | ✔               | Trả về quán có `owner_id = auth.uid()`, vì client không đọc được `owner_id`                        |
 | `save_my_restaurant(payload jsonb)`        | **definer**    | —      | ✔               | Đăng ký quán (mỗi tài khoản một quán) hoặc sửa quán của mình; không sửa được rating, nổi bật, slug |
 | `orders_require_open_restaurant()`         | definer        | —      | —               | Trigger trên `orders`: quán Tạm đóng thì báo `restaurant_closed`                                   |
+| `my_foods()`                               | **definer**    | —      | ✔               | Mọi món của quán mình, kể cả món Ngừng bán, kèm size và topping                                    |
+| `save_food(payload jsonb)`                 | **definer**    | —      | ✔               | Thêm hoặc sửa món của quán mình, đồng bộ size và topping trong một transaction                     |
+| `delete_food(food_id bigint)`              | **definer**    | —      | ✔               | Xóa hẳn món của quán mình; đơn cũ giữ bản chụp, dòng giỏ hàng bị xóa theo                          |
 | `handle_new_user()`                        | definer        | —      | —               | Chỉ trigger gọi, không ai gọi trực tiếp được                                                       |
 | `set_updated_at()`, `is_sorted_unique()`   | invoker        |        |                 | Hàm phụ cho trigger và CHECK                                                                       |
 
-Các hàm `place_order`, `cancel_order`, `my_restaurant` và `save_my_restaurant` chạy với quyền `SECURITY DEFINER`. Trình kiểm tra bảo mật của Supabase cảnh báo rằng người đã đăng nhập gọi được chúng; đây là **thiết kế có chủ đích**. Hai hàm được bảo vệ như sau:
+Các hàm `place_order`, `cancel_order` và các hàm của Chủ quán (`my_restaurant`, `save_my_restaurant`, `my_foods`, `save_food`, `delete_food`) chạy với quyền `SECURITY DEFINER`. Trình kiểm tra bảo mật của Supabase cảnh báo rằng người đã đăng nhập gọi được chúng; đây là **thiết kế có chủ đích**. Hai hàm được bảo vệ như sau:
 
 - Lấy người dùng **chỉ** từ `auth.uid()`, không bao giờ nhận user id từ client.
 - Kiểm tra từng tham số đầu vào, và tự tính mọi con số tiền.
@@ -453,11 +457,11 @@ Các bước chạy trong một transaction:
 
 ## 5. Kịch bản test SQL
 
-Bốn file test tự kiểm tra kết quả: đạt thì in dòng `PASS …`, sai thì dừng với lỗi `FAIL …`. Mỗi file bọc trong `BEGIN … ROLLBACK`, nên **chạy trên production cũng không để lại dữ liệu nào**. Các tài khoản thử chỉ tồn tại trong transaction đó.
+Năm file test tự kiểm tra kết quả: đạt thì in dòng `PASS …`, sai thì dừng với lỗi `FAIL …`. Mỗi file bọc trong `BEGIN … ROLLBACK`, nên **chạy trên production cũng không để lại dữ liệu nào**. Các tài khoản thử chỉ tồn tại trong transaction đó.
 
 Để chạy tất cả một lần, dán `supabase/tests/all_tests.sql` vào **SQL Editor** rồi bấm **Run**. Sau khi sửa một file test, sinh lại file gộp bằng `npm run db:test-bundle`.
 
-Kết quả mong đợi: **27 dòng `PASS`** trong tab Messages.
+Kết quả mong đợi: **33 dòng `PASS`** trong tab Messages.
 
 | #   | Phần     | Kết quả mong đợi                                                                                                                                                          |
 | --- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -488,6 +492,12 @@ Kết quả mong đợi: **27 dòng `PASS`** trong tab Messages.
 | 4.4 | Chủ quán | Không tự sửa được rating; không đọc được `owner_id`                                                                                                                       |
 | 4.5 | Chủ quán | **Chủ quán B không thấy, không sửa được quán của A**                                                                                                                      |
 | 4.6 | Chủ quán | **Quán Tạm đóng không nhận đơn** (`restaurant_closed`) và không bị trừ kho                                                                                                |
+| 5.1 | Món      | Thêm món kèm 2 size và 1 topping trong một lần lưu; `my_foods()` thấy món                                                                                                 |
+| 5.2 | Món      | Sửa món: **giữ nguyên id size cũ** (dòng giỏ hàng của khách không mất), bỏ size, thêm size mặc định mới, bỏ topping, Ngừng bán; chủ quán vẫn thấy món Ngừng bán           |
+| 5.3 | Món      | Giá hoặc tồn kho âm, tên dài, tag lạ, ảnh `javascript:`, size trùng tên hoặc không có size mặc định đều bị từ chối với `invalid_food`                                     |
+| 5.4 | Món      | **Không sửa, không xóa được món của quán khác** (`food_not_found`), không mượn được id size của món khác, không ghi thẳng bảng `foods`                                    |
+| 5.5 | Món      | Người chưa có quán không thêm được món (`no_restaurant`), không thấy và không xóa được món của A                                                                          |
+| 5.6 | Món      | Chủ quán xóa được món của mình; size và topping của món bị xóa theo                                                                                                       |
 
 Ngoài SQL, phần logic phía client có hơn 200 test Vitest (`npm test`), chạy trong CI ở mọi lần push.
 
@@ -497,19 +507,20 @@ Ngoài SQL, phần logic phía client có hơn 200 test Vitest (`npm test`), ch�
 
 Toàn bộ thao tác làm trong Supabase Dashboard của project, phần **SQL Editor** → **New query**.
 
-1. **Chạy 6 migration theo đúng thứ tự tên file**, mỗi file một lần Run:
+1. **Chạy 7 migration theo đúng thứ tự tên file**, mỗi file một lần Run:
    1. `supabase/migrations/20261104000100_menu.sql`
    2. `supabase/migrations/20261104000200_profiles.sql`
    3. `supabase/migrations/20261104000300_cart_items.sql`
    4. `supabase/migrations/20261104000400_orders.sql`
    5. `supabase/migrations/20261104000500_cancel_order.sql`
    6. `supabase/migrations/20261105000100_restaurant_owner.sql`
+   7. `supabase/migrations/20261105000200_owner_foods.sql`
 
    Mỗi file chạy lại được nhiều lần (`create … if not exists`, `drop … if exists`, `create or replace`).
 
 2. **Nạp dữ liệu mẫu**: chạy `supabase/seed.sql`, gồm 6 danh mục, 7 quán, 41 món, 36 size và 37 topping.
 3. **Cấu hình Auth**: vào Authentication → Sign In / Providers → Email, **tắt "Confirm email"** để người dùng đăng ký xong là đăng nhập được ngay.
-4. **Kiểm tra**: chạy `supabase/tests/all_tests.sql`. Kết quả phải là 27 dòng `PASS`.
+4. **Kiểm tra**: chạy `supabase/tests/all_tests.sql`. Kết quả phải là 33 dòng `PASS`.
 5. **Nối ứng dụng**: lấy URL của project và publishable key ở Project Settings → API. Đặt hai giá trị này vào `VITE_SUPABASE_URL` và `VITE_SUPABASE_ANON_KEY` ở cả ba nơi: file `.env` khi chạy ở máy, Vercel (Production và Preview), và GitHub Secrets.
 
 Hai lưu ý quan trọng khi làm theo các bước trên:

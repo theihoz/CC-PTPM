@@ -1,7 +1,8 @@
 <script setup>
 import { computed, ref, useId } from 'vue'
 
-const model = defineModel({ type: String, default: '' })
+// Ô type="number" được Vue trả về dạng số.
+const model = defineModel({ type: [String, Number], default: '' })
 const props = defineProps({
   label: { type: String, required: true },
   type: { type: String, default: 'text' },

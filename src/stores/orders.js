@@ -18,7 +18,8 @@ export const useOrdersStore = defineStore('orders', () => {
   async function placeOrder(delivery) {
     if (placing.value) return { ok: false, code: 'busy', message: '', shortages: [] }
     // Chỉ gửi lựa chọn; server tự tính giá từ thực đơn.
-    const items = cart.items.map(({ foodId, sizeId, toppingIds, spiceLevel, quantity }) => ({
+    // Dòng có món đã bị Chủ quán xóa không còn trong cart.lines nên không gửi đi.
+    const items = cart.lines.map(({ foodId, sizeId, toppingIds, spiceLevel, quantity }) => ({
       foodId,
       sizeId,
       toppingIds: [...toppingIds],
