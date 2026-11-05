@@ -13,6 +13,7 @@ import {
 import TextField from '@/components/TextField.vue'
 import SmartImage from '@/components/SmartImage.vue'
 import ErrorState from '@/components/ErrorState.vue'
+import OwnerFoodList from '@/components/OwnerFoodList.vue'
 
 const owner = useMyRestaurantStore()
 const toast = useToastStore()
@@ -241,5 +242,7 @@ async function save() {
         {{ owner.saving ? 'Đang lưu…' : isNew ? 'Đăng ký quán' : 'Lưu thông tin quán' }}
       </button>
     </form>
+
+    <OwnerFoodList v-if="owner.status === 'ready' && owner.restaurant" />
   </section>
 </template>

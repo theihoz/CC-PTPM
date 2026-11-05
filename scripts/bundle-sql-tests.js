@@ -11,6 +11,7 @@ const ORDER = [
   ['place_order_test.sql', 'Đặt hàng (place_order)', 9],
   ['cancel_order_test.sql', 'Hủy đơn (cancel_order)', 6],
   ['restaurant_owner_test.sql', 'Chủ quán: đăng ký, sửa quán, Tạm đóng', 6],
+  ['owner_foods_test.sql', 'Chủ quán: thêm, sửa, xóa món', 6],
 ]
 
 const total = ORDER.reduce((sum, [, , n]) => sum + n, 0)

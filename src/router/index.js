@@ -128,6 +128,27 @@ export const routes = [
     },
   },
   {
+    path: '/my-restaurant/foods/new',
+    name: 'my-food-new',
+    component: () => import('@/views/FoodEditorView.vue'),
+    meta: {
+      title: 'Thêm món',
+      description: 'Thêm món mới vào thực đơn quán của bạn.',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/my-restaurant/foods/:foodId(\\d+)/edit',
+    name: 'my-food-edit',
+    component: () => import('@/views/FoodEditorView.vue'),
+    props: true,
+    meta: {
+      title: 'Sửa món',
+      description: 'Sửa giá, tồn kho, size, topping hoặc Ngừng bán một món.',
+      requiresAuth: true,
+    },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/views/NotFoundView.vue'),
