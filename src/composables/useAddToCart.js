@@ -37,6 +37,11 @@ export function useAddToCart() {
   }
 
   function add(selection) {
+    const food = menu.foodById(selection.foodId)
+    if (food && menu.restaurantById(food.restaurantId)?.isOpen === false) {
+      toast.show('Quán đang tạm đóng, chưa nhận đơn mới.', { tone: 'error' })
+      return false
+    }
     const result = cart.addItem(selection)
     if (result.status === 'other-restaurant') {
       pendingSwitch.value = {

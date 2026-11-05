@@ -31,7 +31,7 @@ export async function fetchMenu() {
     supabase.from('categories').select('id, slug, name, icon, sort_order'),
     supabase.from('restaurants').select(
       `id, slug, name, description, image_url, address, category_id, rating, rating_count,
-         delivery_time_min, open_time, close_time, is_featured,
+         delivery_time_min, open_time, close_time, is_featured, is_open,
          foods (
            id, restaurant_id, category_id, name, description, image_url, base_price, calories,
            tags, stock, has_spice, is_featured, is_available, sort_order,

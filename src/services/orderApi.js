@@ -24,6 +24,7 @@ const PLACE_ORDER_ERRORS = [
   'invalid_delivery',
   'below_minimum',
   'out_of_stock',
+  'restaurant_closed',
 ]
 const CANCEL_ORDER_ERRORS = [
   'not_authenticated',

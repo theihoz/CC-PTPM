@@ -62,6 +62,8 @@ export function normalizeMenu({ categories, restaurants }) {
         openTime: hhmm(r.open_time),
         closeTime: hhmm(r.close_time),
         isFeatured: Boolean(r.is_featured),
+        // Quán mẫu trong dữ liệu dự phòng chưa có cột is_open: coi như đang mở bán.
+        isOpen: r.is_open !== false,
         foods: [...(r.foods ?? [])]
           .filter((f) => f.is_available !== false)
           .sort(bySortOrder)

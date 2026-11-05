@@ -114,14 +114,14 @@ export function parseBody(body) {
   return { message, history }
 }
 
-/** Thực đơn rút gọn (chỉ món còn hàng) đọc từ Supabase bằng anon key; RLS chỉ cho đọc. */
+/** Thực đơn rút gọn (chỉ món còn hàng, của quán đang mở bán) đọc từ Supabase bằng anon key; RLS chỉ cho đọc. */
 async function loadMenu(fetchImpl, env) {
   const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL
   const key = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY
   if (!url || !key) throw new Error('supabase_not_configured')
   const query =
-    'select=id,name,calories,tags,stock,base_price,restaurants(name),categories(name)' +
-    '&stock=gt.0&order=id'
+    'select=id,name,calories,tags,stock,base_price,restaurants!inner(name,is_open),categories(name)' +
+    '&stock=gt.0&restaurants.is_open=eq.true&order=id'
   const response = await fetchImpl(`${url}/rest/v1/foods?${query}`, {
     headers: { apikey: key, Authorization: `Bearer ${key}` },
   })

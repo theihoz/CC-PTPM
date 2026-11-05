@@ -93,13 +93,22 @@ usePageTitle(
         />
         <span
           class="absolute top-4 left-4 rounded-full px-3 py-1 text-sm font-semibold"
-          :class="open ? 'bg-emerald-700 text-white' : 'bg-stone-800/80 text-white'"
+          :class="
+            restaurant.isOpen && open ? 'bg-emerald-700 text-white' : 'bg-stone-800/80 text-white'
+          "
         >
-          {{ open ? 'Đang mở cửa' : 'Đã đóng cửa' }}
+          {{ !restaurant.isOpen ? 'Quán đang tạm đóng' : open ? 'Đang mở cửa' : 'Đã đóng cửa' }}
         </span>
       </div>
       <div class="space-y-3 p-5 sm:p-6">
         <h1 class="text-2xl font-bold sm:text-3xl">{{ restaurant.name }}</h1>
+        <p
+          v-if="!restaurant.isOpen"
+          role="status"
+          class="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          Quán đang tạm đóng nên chưa nhận đơn mới. Bạn vẫn xem được thực đơn.
+        </p>
         <p class="text-stone-600">{{ restaurant.description }}</p>
         <dl class="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
           <div class="flex gap-2">
