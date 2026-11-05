@@ -71,3 +71,54 @@ export function validateDelivery({ recipientName, phone, address, note }) {
     note: validateNote(note),
   }
 }
+
+export const RESTAURANT_NAME_MAX = 80
+export const RESTAURANT_DESCRIPTION_MAX = 300
+export const IMAGE_URL_MAX = 500
+
+/** URL ảnh: để trống, hoặc https:// tối đa 500 ký tự. */
+export function validateImageUrl(value) {
+  const url = String(value ?? '').trim()
+  if (!url) return ''
+  if (url.length > IMAGE_URL_MAX) return `Đường dẫn ảnh tối đa ${IMAGE_URL_MAX} ký tự.`
+  if (!/^https:\/\/[^\s]+$/.test(url)) return 'Đường dẫn ảnh phải bắt đầu bằng https://'
+  return ''
+}
+
+const TIME_PATTERN = /^([01][0-9]|2[0-3]):[0-5][0-9]$/
+
+/** Kiểm tra form thông tin quán; trả về object lỗi theo từng trường ('' là hợp lệ). */
+export function validateRestaurant(
+  { name, description, imageUrl, address, categoryId, openTime, closeTime, deliveryTimeMin },
+  categoryIds = [],
+) {
+  const trimmedName = String(name ?? '').trim()
+  const delivery = Number(deliveryTimeMin)
+  return {
+    name: !trimmedName
+      ? 'Vui lòng nhập tên quán.'
+      : trimmedName.length < 2
+        ? 'Tên quán quá ngắn.'
+        : trimmedName.length > RESTAURANT_NAME_MAX
+          ? `Tên quán tối đa ${RESTAURANT_NAME_MAX} ký tự.`
+          : '',
+    description:
+      String(description ?? '').trim().length > RESTAURANT_DESCRIPTION_MAX
+        ? `Mô tả tối đa ${RESTAURANT_DESCRIPTION_MAX} ký tự.`
+        : '',
+    imageUrl: validateImageUrl(imageUrl),
+    address: validateAddress(address).replace('địa chỉ giao hàng', 'địa chỉ quán'),
+    categoryId: categoryIds.includes(Number(categoryId)) ? '' : 'Vui lòng chọn danh mục.',
+    openTime: TIME_PATTERN.test(openTime ?? '') ? '' : 'Giờ mở cửa không hợp lệ.',
+    closeTime: TIME_PATTERN.test(closeTime ?? '') ? '' : 'Giờ đóng cửa không hợp lệ.',
+    deliveryTimeMin:
+      Number.isInteger(delivery) && delivery >= 5 && delivery <= 180
+        ? ''
+        : 'Thời gian giao từ 5 đến 180 phút.',
+  }
+}
+
+/** true khi object lỗi không còn trường nào báo lỗi. */
+export function isValid(errors) {
+  return Object.values(errors).every((message) => !message)
+}

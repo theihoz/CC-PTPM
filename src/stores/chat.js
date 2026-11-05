@@ -21,7 +21,7 @@ export const useChatStore = defineStore('chat', () => {
 
   // Gemini qua /api/suggest; Function lỗi hoặc không có (npm run dev) thì tự dùng Mock AI.
   let service = createAiService({
-    getFoods: () => menu.foods,
+    getFoods: () => menu.orderableFoods,
     categorySlugOf: (food) => menu.categoryById(food.categoryId)?.slug ?? null,
     transport: createHttpTransport(),
   })

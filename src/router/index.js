@@ -118,6 +118,16 @@ export const routes = [
     },
   },
   {
+    path: '/my-restaurant',
+    name: 'my-restaurant',
+    component: () => import('@/views/MyRestaurantView.vue'),
+    meta: {
+      title: 'Quán của tôi',
+      description: 'Đăng ký quán trên FoodieGo, sửa thông tin quán và bật/tắt Tạm đóng.',
+      requiresAuth: true,
+    },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/views/NotFoundView.vue'),

@@ -31,7 +31,14 @@ const stock = computed(() => (food.value ? stockStatus(food.value.stock) : 'out'
 
 const cart = useCartStore()
 // Số phần còn thêm được = tồn kho − phần món này đã có trong giỏ.
-const available = computed(() => (food.value ? cart.remainingStock(food.value.id) : 0))
+const closed = computed(() => restaurant.value?.isOpen === false)
+const available = computed(() =>
+  food.value && !closed.value ? cart.remainingStock(food.value.id) : 0,
+)
+const soldOutLabel = computed(() => {
+  if (closed.value) return 'Quán đang tạm đóng'
+  return food.value?.stock > 0 ? 'Bạn đã thêm hết phần còn lại vào giỏ' : 'Hết món'
+})
 
 const { add, pendingSwitch, confirmSwitch, cancelSwitch } = useAddToCart()
 
@@ -150,7 +157,7 @@ usePageTitle(
         <FoodOptions
           :food="food"
           :available="available"
-          :sold-out-label="food.stock > 0 ? 'Bạn đã thêm hết phần còn lại vào giỏ' : 'Hết món'"
+          :sold-out-label="soldOutLabel"
           @add="add"
         />
       </div>

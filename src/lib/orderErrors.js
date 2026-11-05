@@ -11,6 +11,7 @@ const MESSAGES = {
   invalid_delivery: 'Thông tin giao hàng chưa hợp lệ. Vui lòng kiểm tra lại.',
   below_minimum: `Đơn tối thiểu ${formatVND(MIN_ORDER_SUBTOTAL)}. Vui lòng thêm món.`,
   out_of_stock: 'Một số món không còn đủ số lượng.',
+  restaurant_closed: 'Quán đang tạm đóng, chưa nhận đơn mới. Vui lòng chọn quán khác.',
   network: 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.',
   // cancel_order
   order_not_found: 'Không tìm thấy đơn hàng.',

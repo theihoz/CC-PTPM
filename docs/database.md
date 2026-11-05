@@ -5,7 +5,7 @@ FoodieGo dùng **Supabase** (PostgreSQL 17) làm backend:
 - **Supabase Auth** quản lý tài khoản.
 - **PostgreSQL** lưu thực đơn, hồ sơ, giỏ hàng và đơn hàng.
 - **Row Level Security (RLS)** quyết định ai được đọc và ghi dòng nào.
-- **RPC** (các hàm PL/pgSQL) xử lý mọi nghiệp vụ cần chạy trong transaction: đặt hàng, hủy đơn, lưu giỏ hàng.
+- **RPC** (các hàm PL/pgSQL) xử lý mọi nghiệp vụ cần chạy trong transaction: đặt hàng, hủy đơn, lưu giỏ hàng, đăng ký và sửa quán.
 
 Nguyên tắc thiết kế:
 
@@ -17,15 +17,16 @@ Nguyên tắc thiết kế:
 
 Tất cả SQL nằm trong thư mục `supabase/`:
 
-| File                                         | Nội dung                                                                      |
-| -------------------------------------------- | ----------------------------------------------------------------------------- |
-| `migrations/20261104000100_menu.sql`         | Thực đơn: `categories`, `restaurants`, `foods`, `food_sizes`, `food_toppings` |
-| `migrations/20261104000200_profiles.sql`     | Hồ sơ `profiles` và trigger tạo hồ sơ khi đăng ký                             |
-| `migrations/20261104000300_cart_items.sql`   | Giỏ hàng `cart_items` và RPC `replace_cart`                                   |
-| `migrations/20261104000400_orders.sql`       | `orders`, `order_items`, `order_code_counters` và RPC `place_order`           |
-| `migrations/20261104000500_cancel_order.sql` | RPC `cancel_order`                                                            |
-| `seed.sql`                                   | Dữ liệu mẫu, sinh từ `src/data/menuSeed.js` bằng `npm run db:seed`            |
-| `tests/all_tests.sql`                        | Toàn bộ kịch bản test, sinh bằng `npm run db:test-bundle`                     |
+| File                                             | Nội dung                                                                                                  |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `migrations/20261104000100_menu.sql`             | Thực đơn: `categories`, `restaurants`, `foods`, `food_sizes`, `food_toppings`                             |
+| `migrations/20261104000200_profiles.sql`         | Hồ sơ `profiles` và trigger tạo hồ sơ khi đăng ký                                                         |
+| `migrations/20261104000300_cart_items.sql`       | Giỏ hàng `cart_items` và RPC `replace_cart`                                                               |
+| `migrations/20261104000400_orders.sql`           | `orders`, `order_items`, `order_code_counters` và RPC `place_order`                                       |
+| `migrations/20261104000500_cancel_order.sql`     | RPC `cancel_order`                                                                                        |
+| `migrations/20261105000100_restaurant_owner.sql` | Chủ quán: `owner_id`, `is_open`, RPC `my_restaurant`, `save_my_restaurant`, trigger chặn đơn khi Tạm đóng |
+| `seed.sql`                                       | Dữ liệu mẫu, sinh từ `src/data/menuSeed.js` bằng `npm run db:seed`                                        |
+| `tests/all_tests.sql`                            | Toàn bộ kịch bản test, sinh bằng `npm run db:test-bundle`                                                 |
 
 ---
 
@@ -36,6 +37,7 @@ erDiagram
     AUTH_USERS ||--|| PROFILES : "có hồ sơ"
     AUTH_USERS ||--o{ CART_ITEMS : "có giỏ"
     AUTH_USERS ||--o{ ORDERS : "đặt"
+    AUTH_USERS |o--o| RESTAURANTS : "làm chủ quán"
     CATEGORIES ||--o{ RESTAURANTS : "danh mục chính"
     CATEGORIES ||--o{ FOODS : "phân loại"
     RESTAURANTS ||--o{ FOODS : "bán"
@@ -72,6 +74,8 @@ erDiagram
         time open_time
         time close_time
         boolean is_featured
+        boolean is_open
+        uuid owner_id UK,FK "null với quán mẫu"
     }
     FOODS {
         bigint id PK
@@ -171,20 +175,24 @@ Ký hiệu trong các bảng dưới đây: **PK** là khóa chính, **FK** là 
 
 ### 2.2 `restaurants`: quán ăn
 
-| Cột                       | Kiểu           | Ràng buộc                                  | Mô tả                                                                     |
-| ------------------------- | -------------- | ------------------------------------------ | ------------------------------------------------------------------------- |
-| `id`                      | `bigint`       | PK, identity                               |                                                                           |
-| `slug`                    | `text`         | NN, UK, dạng slug                          |                                                                           |
-| `name`                    | `text`         | NN, không rỗng                             |                                                                           |
-| `description`             | `text`         | NN, mặc định `''`                          |                                                                           |
-| `image_url`               | `text`         |                                            | Ảnh bìa (Unsplash)                                                        |
-| `address`                 | `text`         | NN, mặc định `''`                          |                                                                           |
-| `category_id`             | `smallint`     | FK → `categories.id`, `ON DELETE SET NULL` | Danh mục chính                                                            |
-| `rating`                  | `numeric(2,1)` | NN, 0–5                                    | Điểm đánh giá                                                             |
-| `rating_count`            | `integer`      | NN, ≥ 0                                    | Số lượt đánh giá                                                          |
-| `delivery_time_min`       | `smallint`     | NN, > 0, mặc định 30                       | Thời gian giao (phút)                                                     |
-| `open_time`, `close_time` | `time`         | NN                                         | Giờ mở và đóng cửa. `close_time < open_time` nghĩa là quán mở qua nửa đêm |
-| `is_featured`             | `boolean`      | NN, mặc định `false`                       | Hiện trên trang chủ                                                       |
+| Cột                       | Kiểu           | Ràng buộc                                      | Mô tả                                                                     |
+| ------------------------- | -------------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
+| `id`                      | `bigint`       | PK, identity                                   |                                                                           |
+| `slug`                    | `text`         | NN, UK, dạng slug                              |                                                                           |
+| `name`                    | `text`         | NN, không rỗng                                 |                                                                           |
+| `description`             | `text`         | NN, mặc định `''`                              |                                                                           |
+| `image_url`               | `text`         |                                                | Ảnh bìa (Unsplash)                                                        |
+| `address`                 | `text`         | NN, mặc định `''`                              |                                                                           |
+| `category_id`             | `smallint`     | FK → `categories.id`, `ON DELETE SET NULL`     | Danh mục chính                                                            |
+| `rating`                  | `numeric(2,1)` | NN, 0–5                                        | Điểm đánh giá                                                             |
+| `rating_count`            | `integer`      | NN, ≥ 0                                        | Số lượt đánh giá                                                          |
+| `delivery_time_min`       | `smallint`     | NN, > 0, mặc định 30                           | Thời gian giao (phút)                                                     |
+| `open_time`, `close_time` | `time`         | NN                                             | Giờ mở và đóng cửa. `close_time < open_time` nghĩa là quán mở qua nửa đêm |
+| `is_featured`             | `boolean`      | NN, mặc định `false`                           | Hiện trên trang chủ                                                       |
+| `owner_id`                | `uuid`         | UK, FK → `auth.users.id`, `ON DELETE SET NULL` | Chủ quán. `null` với quán mẫu. Client không đọc được cột này              |
+| `is_open`                 | `boolean`      | NN, mặc định `true`                            | `false` là Tạm đóng: ẩn khỏi danh sách và gợi ý AI, không nhận đơn mới    |
+
+CHECK `restaurants_text_length`: tên ≤ 80, mô tả ≤ 300, địa chỉ ≤ 300 ký tự; `image_url` rỗng hoặc bắt đầu bằng `https://`, ≤ 500 ký tự.
 
 ### 2.3 `foods`: món ăn
 
@@ -319,29 +327,33 @@ Mỗi bảng có hai lớp bảo vệ:
 1. **GRANT** quyết định vai trò được phép làm thao tác nào trên bảng.
 2. **Policy RLS** quyết định được thao tác trên **những dòng nào**.
 
-| Bảng                                                       | `anon` | `authenticated`                                              | Điều kiện dòng (RLS)                                      |
-| ---------------------------------------------------------- | ------ | ------------------------------------------------------------ | --------------------------------------------------------- |
-| `categories`, `restaurants`, `food_sizes`, `food_toppings` | SELECT | SELECT                                                       | Mọi dòng                                                  |
-| `foods`                                                    | SELECT | SELECT                                                       | `is_available = true`                                     |
-| `profiles`                                                 | —      | SELECT, UPDATE (chỉ `full_name`, `phone`, `default_address`) | `id = auth.uid()` (UPDATE có cả `USING` lẫn `WITH CHECK`) |
-| `cart_items`                                               | —      | SELECT, INSERT, DELETE, UPDATE (chỉ `quantity`)              | `user_id = auth.uid()`                                    |
-| `orders`                                                   | —      | SELECT                                                       | `user_id = auth.uid()`                                    |
-| `order_items`                                              | —      | SELECT                                                       | Đơn cha thuộc `auth.uid()`                                |
-| `order_code_counters`                                      | —      | —                                                            | Không có policy, không truy cập được                      |
+| Bảng                                        | `anon`                  | `authenticated`                                              | Điều kiện dòng (RLS)                                      |
+| ------------------------------------------- | ----------------------- | ------------------------------------------------------------ | --------------------------------------------------------- |
+| `categories`, `food_sizes`, `food_toppings` | SELECT                  | SELECT                                                       | Mọi dòng                                                  |
+| `restaurants`                               | SELECT (trừ `owner_id`) | SELECT (trừ `owner_id`)                                      | Mọi dòng                                                  |
+| `foods`                                     | SELECT                  | SELECT                                                       | `is_available = true`                                     |
+| `profiles`                                  | —                       | SELECT, UPDATE (chỉ `full_name`, `phone`, `default_address`) | `id = auth.uid()` (UPDATE có cả `USING` lẫn `WITH CHECK`) |
+| `cart_items`                                | —                       | SELECT, INSERT, DELETE, UPDATE (chỉ `quantity`)              | `user_id = auth.uid()`                                    |
+| `orders`                                    | —                       | SELECT                                                       | `user_id = auth.uid()`                                    |
+| `order_items`                               | —                       | SELECT                                                       | Đơn cha thuộc `auth.uid()`                                |
+| `order_code_counters`                       | —                       | —                                                            | Không có policy, không truy cập được                      |
 
 Thực đơn bị thu hồi mọi quyền `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE` từ `anon` và `authenticated`. Đây là lớp chặn thứ hai, phòng khi một policy bị viết sai.
 
 ### Quyền gọi hàm (RPC)
 
-| Hàm                                        | Chạy với quyền | `anon` | `authenticated` | Ghi chú                                                         |
-| ------------------------------------------ | -------------- | ------ | --------------- | --------------------------------------------------------------- |
-| `replace_cart(items jsonb)`                | **invoker**    | —      | ✔               | Chạy với quyền của người gọi nên RLS vẫn áp dụng                |
-| `place_order(items jsonb, delivery jsonb)` | **definer**    | —      | ✔               | Cần quyền trừ `foods.stock` và ghi `orders`, mà client không có |
-| `cancel_order(order_id uuid)`              | **definer**    | —      | ✔               | Cần quyền ghi `orders.cancelled_at` và cộng lại `foods.stock`   |
-| `handle_new_user()`                        | definer        | —      | —               | Chỉ trigger gọi, không ai gọi trực tiếp được                    |
-| `set_updated_at()`, `is_sorted_unique()`   | invoker        |        |                 | Hàm phụ cho trigger và CHECK                                    |
+| Hàm                                        | Chạy với quyền | `anon` | `authenticated` | Ghi chú                                                                                            |
+| ------------------------------------------ | -------------- | ------ | --------------- | -------------------------------------------------------------------------------------------------- |
+| `replace_cart(items jsonb)`                | **invoker**    | —      | ✔               | Chạy với quyền của người gọi nên RLS vẫn áp dụng                                                   |
+| `place_order(items jsonb, delivery jsonb)` | **definer**    | —      | ✔               | Cần quyền trừ `foods.stock` và ghi `orders`, mà client không có                                    |
+| `cancel_order(order_id uuid)`              | **definer**    | —      | ✔               | Cần quyền ghi `orders.cancelled_at` và cộng lại `foods.stock`                                      |
+| `my_restaurant()`                          | **definer**    | —      | ✔               | Trả về quán có `owner_id = auth.uid()`, vì client không đọc được `owner_id`                        |
+| `save_my_restaurant(payload jsonb)`        | **definer**    | —      | ✔               | Đăng ký quán (mỗi tài khoản một quán) hoặc sửa quán của mình; không sửa được rating, nổi bật, slug |
+| `orders_require_open_restaurant()`         | definer        | —      | —               | Trigger trên `orders`: quán Tạm đóng thì báo `restaurant_closed`                                   |
+| `handle_new_user()`                        | definer        | —      | —               | Chỉ trigger gọi, không ai gọi trực tiếp được                                                       |
+| `set_updated_at()`, `is_sorted_unique()`   | invoker        |        |                 | Hàm phụ cho trigger và CHECK                                                                       |
 
-Hai hàm `place_order` và `cancel_order` chạy với quyền `SECURITY DEFINER`. Trình kiểm tra bảo mật của Supabase cảnh báo rằng người đã đăng nhập gọi được chúng; đây là **thiết kế có chủ đích**. Hai hàm được bảo vệ như sau:
+Các hàm `place_order`, `cancel_order`, `my_restaurant` và `save_my_restaurant` chạy với quyền `SECURITY DEFINER`. Trình kiểm tra bảo mật của Supabase cảnh báo rằng người đã đăng nhập gọi được chúng; đây là **thiết kế có chủ đích**. Hai hàm được bảo vệ như sau:
 
 - Lấy người dùng **chỉ** từ `auth.uid()`, không bao giờ nhận user id từ client.
 - Kiểm tra từng tham số đầu vào, và tự tính mọi con số tiền.
@@ -441,11 +453,11 @@ Các bước chạy trong một transaction:
 
 ## 5. Kịch bản test SQL
 
-Ba file test tự kiểm tra kết quả: đạt thì in dòng `PASS …`, sai thì dừng với lỗi `FAIL …`. Mỗi file bọc trong `BEGIN … ROLLBACK`, nên **chạy trên production cũng không để lại dữ liệu nào**. Các tài khoản thử chỉ tồn tại trong transaction đó.
+Bốn file test tự kiểm tra kết quả: đạt thì in dòng `PASS …`, sai thì dừng với lỗi `FAIL …`. Mỗi file bọc trong `BEGIN … ROLLBACK`, nên **chạy trên production cũng không để lại dữ liệu nào**. Các tài khoản thử chỉ tồn tại trong transaction đó.
 
 Để chạy tất cả một lần, dán `supabase/tests/all_tests.sql` vào **SQL Editor** rồi bấm **Run**. Sau khi sửa một file test, sinh lại file gộp bằng `npm run db:test-bundle`.
 
-Kết quả mong đợi: **21 dòng `PASS`** trong tab Messages.
+Kết quả mong đợi: **27 dòng `PASS`** trong tab Messages.
 
 | #   | Phần     | Kết quả mong đợi                                                                                                                                                          |
 | --- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -470,8 +482,14 @@ Kết quả mong đợi: **21 dòng `PASS`** trong tab Messages.
 | 3.4 | Hủy đơn  | Đơn không tồn tại bị từ chối với `order_not_found`                                                                                                                        |
 | 3.5 | Hủy đơn  | **B không hủy được đơn của A**: lỗi `order_not_found`                                                                                                                     |
 | 3.6 | Hủy đơn  | `anon` không gọi được `cancel_order`                                                                                                                                      |
+| 4.1 | Chủ quán | Đăng ký quán: `my_restaurant()` thấy quán vừa tạo; slug trùng với quán có sẵn thì tự thêm `-2`                                                                            |
+| 4.2 | Chủ quán | Lưu lần hai là sửa quán cũ, không tạo quán thứ hai, slug giữ nguyên                                                                                                       |
+| 4.3 | Chủ quán | Tên quá dài, danh mục không tồn tại, ảnh `javascript:`, giờ sai đều bị từ chối với `invalid_restaurant`                                                                   |
+| 4.4 | Chủ quán | Không tự sửa được rating; không đọc được `owner_id`                                                                                                                       |
+| 4.5 | Chủ quán | **Chủ quán B không thấy, không sửa được quán của A**                                                                                                                      |
+| 4.6 | Chủ quán | **Quán Tạm đóng không nhận đơn** (`restaurant_closed`) và không bị trừ kho                                                                                                |
 
-Ngoài SQL, phần logic phía client có hơn 190 test Vitest (`npm test`), chạy trong CI ở mọi lần push.
+Ngoài SQL, phần logic phía client có hơn 200 test Vitest (`npm test`), chạy trong CI ở mọi lần push.
 
 ---
 
@@ -479,18 +497,19 @@ Ngoài SQL, phần logic phía client có hơn 190 test Vitest (`npm test`), ch�
 
 Toàn bộ thao tác làm trong Supabase Dashboard của project, phần **SQL Editor** → **New query**.
 
-1. **Chạy 5 migration theo đúng thứ tự tên file**, mỗi file một lần Run:
+1. **Chạy 6 migration theo đúng thứ tự tên file**, mỗi file một lần Run:
    1. `supabase/migrations/20261104000100_menu.sql`
    2. `supabase/migrations/20261104000200_profiles.sql`
    3. `supabase/migrations/20261104000300_cart_items.sql`
    4. `supabase/migrations/20261104000400_orders.sql`
    5. `supabase/migrations/20261104000500_cancel_order.sql`
+   6. `supabase/migrations/20261105000100_restaurant_owner.sql`
 
    Mỗi file chạy lại được nhiều lần (`create … if not exists`, `drop … if exists`, `create or replace`).
 
 2. **Nạp dữ liệu mẫu**: chạy `supabase/seed.sql`, gồm 6 danh mục, 7 quán, 41 món, 36 size và 37 topping.
 3. **Cấu hình Auth**: vào Authentication → Sign In / Providers → Email, **tắt "Confirm email"** để người dùng đăng ký xong là đăng nhập được ngay.
-4. **Kiểm tra**: chạy `supabase/tests/all_tests.sql`. Kết quả phải là 21 dòng `PASS`.
+4. **Kiểm tra**: chạy `supabase/tests/all_tests.sql`. Kết quả phải là 27 dòng `PASS`.
 5. **Nối ứng dụng**: lấy URL của project và publishable key ở Project Settings → API. Đặt hai giá trị này vào `VITE_SUPABASE_URL` và `VITE_SUPABASE_ANON_KEY` ở cả ba nơi: file `.env` khi chạy ở máy, Vercel (Production và Preview), và GitHub Secrets.
 
 Hai lưu ý quan trọng khi làm theo các bước trên:

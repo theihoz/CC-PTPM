@@ -38,11 +38,16 @@ export const useMenuStore = defineStore('menu', () => {
   const categoryMap = computed(() => new Map(categories.value.map((c) => [c.id, c])))
   const foods = computed(() => restaurants.value.flatMap((r) => r.foods))
 
+  // Quán Tạm đóng vẫn mở được bằng link trực tiếp, nhưng không hiện ở danh sách,
+  // trang chủ hay gợi ý AI.
+  const openRestaurants = computed(() => restaurants.value.filter((r) => r.isOpen))
+  const orderableFoods = computed(() => openRestaurants.value.flatMap((r) => r.foods))
+
   const featuredRestaurants = computed(() =>
-    restaurants.value.filter((r) => r.isFeatured).sort((a, b) => b.rating - a.rating),
+    openRestaurants.value.filter((r) => r.isFeatured).sort((a, b) => b.rating - a.rating),
   )
 
-  const featuredFoods = computed(() => foods.value.filter((f) => f.isFeatured))
+  const featuredFoods = computed(() => orderableFoods.value.filter((f) => f.isFeatured))
 
   function restaurantById(id) {
     return restaurantMap.value.get(Number(id)) ?? null
@@ -57,7 +62,7 @@ export const useMenuStore = defineStore('menu', () => {
   }
 
   function searchRestaurants(params) {
-    return filterRestaurants(restaurants.value, categories.value, params)
+    return filterRestaurants(openRestaurants.value, categories.value, params)
   }
 
   return {
@@ -67,6 +72,8 @@ export const useMenuStore = defineStore('menu', () => {
     error,
     load,
     foods,
+    openRestaurants,
+    orderableFoods,
     featuredRestaurants,
     featuredFoods,
     restaurantById,
