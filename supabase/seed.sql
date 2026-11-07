@@ -4,7 +4,7 @@
 -- ----------------------------------------------------------------------------
 -- Chạy trong Supabase SQL Editor SAU migration thực đơn.
 -- Xóa sạch dữ liệu thực đơn cũ rồi nạp lại, nên chạy lại nhiều lần vẫn an toàn.
--- 6 danh mục · 7 quán · 41 món · 36 size · 37 topping
+-- 6 danh mục · 7 quán · 44 món · 36 size · 37 topping
 -- ============================================================================
 
 begin;
@@ -74,7 +74,10 @@ insert into public.foods (id, restaurant_id, category_id, name, description, ima
   (38, 7, 3, 'Pizza pepperoni cay', 'Xúc xích pepperoni, ớt jalapeño, phô mai kéo sợi.', 'https://images.unsplash.com/photo-1513104890138-7c749659a591', 149000, 1200, array['cay', 'no-lau']::text[], 15, true, false, true, 38),
   (39, 7, 3, 'Mì Ý sốt bò bằm', 'Spaghetti sốt bò bằm cà chua, phô mai Parmesan.', 'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9', 89000, 690, array['no-lau']::text[], 20, false, false, true, 39),
   (40, 7, 3, 'Mì Ý hải sản cay', 'Linguine xào tôm, mực, tỏi ớt và dầu ô liu.', 'https://images.unsplash.com/photo-1563379926898-05f4575a45d8', 109000, 720, array['giau-dam', 'cay']::text[], 10, true, false, true, 40),
-  (41, 7, 4, 'Salad Caesar', 'Xà lách romaine, bánh mì nướng, phô mai Parmesan, sốt Caesar.', 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe', 69000, 330, array['it-calo']::text[], 18, false, false, true, 41)
+  (41, 7, 4, 'Salad Caesar', 'Xà lách romaine, bánh mì nướng, phô mai Parmesan, sốt Caesar.', 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe', 69000, 330, array['it-calo']::text[], 18, false, false, true, 41),
+  (42, 6, 6, 'Chè cá lóc', 'Chè cá lóc đặc biệt, món tráng miệng của quán.', 'https://cdn.tgdd.vn/2021/02/CookProduct/a1200-1200x676-2.jpg', 35000, 280, array['ngot']::text[], 20, false, false, true, 42),
+  (43, 6, 6, 'Bánh egg tart dài 60 cm', 'Bánh tart trứng dài 60 cm, vỏ giòn và nhân trứng sữa béo mịn.', 'https://images.unsplash.com/photo-1721489620017-aedd0cffb93e', 120000, 680, array['ngot']::text[], 8, false, false, true, 43),
+  (44, 6, 6, 'Cheese cake', 'Bánh phô mai mềm mịn, vị béo nhẹ và ngọt dịu.', 'https://images.unsplash.com/photo-1744612190402-9e14a70a7a4e', 65000, 420, array['ngot']::text[], 15, false, false, true, 44)
 ;
 select setval(pg_get_serial_sequence('public.foods', 'id'), (select max(id) from public.foods));
 
